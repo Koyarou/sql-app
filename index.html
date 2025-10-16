@@ -422,22 +422,42 @@ Rappels:
 let webllmApp=null, webllmReady=false;
 async function initWebLLM(){
   if(webllmReady) return;
+  // 3a) Pré-checks UX
   loaderEl.style.display='block';
   loaderMsg.textContent = "Préparation du modèle (WebGPU)…";
   loaderBar.style.width = "4%";
-  stripe.style.display = 'block'; // start indeterminate until we get real progress
+  stripe.style.display = 'block';
+
+  if (!('gpu' in navigator)) {
+    loaderMsg.textContent = "WebGPU non disponible dans ce navigateur.";
+    addMsg("⚠️", "Votre navigateur ne supporte pas WebGPU. Essayez Chrome/Edge récents (desktop) ou activez les flags WebGPU.");
+    return; // on n'essaie pas WebLLM
+  }
+  if (!window.crossOriginIsolated) {
+    loaderMsg.textContent = "Activation de l’isolation (COOP/COEP)…";
+    addMsg("ℹ️", "Isolation en cours. Si la page se recharge, c’est normal. Réessayez après rechargement.");
+  }
 
   const initProgressCallback = (p)=> updateProgress(p);
 
-  const model = "Phi-3-mini-4k-instruct-q4f32_1-MLC"; // compact pour navigateur
-  webllmApp = await webllm.createWebWorkerMLCEngine(
-    new URL("https://unpkg.com/@mlc-ai/web-llm/dist/worker.js", import.meta.url),
-    { model, initProgressCallback }
-  );
-  webllmReady=true;
-  updateProgress({progress:1, text:"Modèle prêt ✅"});
-  setTimeout(()=> loaderEl.style.display='none', 700);
+  try {
+    const model = "Phi-3-mini-4k-instruct-q4f32_1-MLC"; // bundle compact
+    webllmApp = await webllm.createWebWorkerMLCEngine(
+      new URL("https://unpkg.com/@mlc-ai/web-llm/dist/worker.js", import.meta.url),
+      { model, initProgressCallback }
+    );
+    webllmReady = true;
+    updateProgress({progress:1, text:"Modèle prêt ✅"});
+    setTimeout(()=> loaderEl.style.display='none', 700);
+  } catch (e) {
+    console.error(e);
+    loaderMsg.textContent = "Échec du chargement du modèle.";
+    stripe.style.display = 'none';
+    loaderBar.style.width = '0%';
+    addMsg("❌", "Impossible de charger le modèle local. Vérifiez que :<br>• la page est bien en HTTPS (GitHub Pages : OK)<br>• l’isolement COOP/COEP est actif (service worker ajouté)<br>• vous utilisez un navigateur compatible WebGPU.");
+  }
 }
+
 
 async function webllmChat(userText){
   await initWebLLM();
