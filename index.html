@@ -1,164 +1,139 @@
 <!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>DB Designer — Chat → Schéma → SQL → .db</title>
-  <style>
-    :root {
-      --bg:#0b0b0b; --panel:#121212; --muted:#1c1c1c; --txt:#fafafa; --sub:#bdbdbd; --accent:#7dd3fc;
-      --radius:16px;
-      font-synthesis-weight:none;
-    }
-    html,body{height:100%}
-    body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Arial,sans-serif}
-    .wrap{max-width:1200px;margin:0 auto;padding:20px;display:grid;grid-template-columns:380px 1fr;gap:16px}
-    .card{background:var(--panel);border:1px solid #222;border-radius:var(--radius);padding:16px}
-    h1{font-size:20px;margin:0 0 8px}
-    .sub{color:var(--sub);font-size:13px}
-    .row{display:flex;gap:8px;align-items:center}
-    input,textarea,button,select{border-radius:10px;border:1px solid #2a2a2a;background:#161616;color:var(--txt)}
-    input,textarea,select{padding:10px;font-size:14px}
-    textarea{width:100%;min-height:110px;resize:vertical}
-    button{padding:10px 14px;cursor:pointer}
-    button.primary{background:#0e7490;border-color:#0e7490}
-    button.ghost{background:#161616}
-    .chatlog{height:340px;overflow:auto;border:1px solid #222;border-radius:12px;padding:12px;background:#0f0f0f}
-    .msg{margin:0 0 12px}
-    .msg .who{font-size:12px;color:#aaa;margin-bottom:4px}
-    .msg .bubble{background:#151515;border:1px solid #222;padding:10px;border-radius:12px}
-    .tabs{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
-    .tab{padding:8px 10px;border:1px solid #222;border-radius:10px;background:#161616;cursor:pointer;font-size:13px}
-    .tab.active{background:#0e7490;border-color:#0e7490}
-    .panel{display:none}
-    .panel.active{display:block}
-    table{width:100%;border-collapse:collapse;font-size:13px}
-    th,td{border-bottom:1px solid #222;padding:6px;text-align:left}
-    td input{width:100%;box-sizing:border-box}
-    pre{white-space:pre-wrap;word-wrap:break-word;background:#0f0f0f;border:1px solid #222;padding:12px;border-radius:12px;max-height:420px;overflow:auto}
-    .footer{display:flex;gap:8px;flex-wrap:wrap}
-    .pill{font-size:12px;color:#9ca3af}
-    .note{font-size:12px;color:#9ca3af;margin-top:6px}
-    .rightHeader{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-    .mt8{margin-top:8px}
-  </style>
-  <!-- sql.js -->
-  <script src="https://sql.js.org/dist/sql-wasm.js"></script>
-  <!-- mermaid for ERD -->
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-  <script>mermaid.initialize({ startOnLoad:false, theme:"dark" });</script>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>DB Designer — Local AI (WebLLM) + SQL</title>
+<style>
+  :root{
+    --bg:#0b0b0b;--panel:#131313;--muted:#191919;--txt:#f7f7f7;--sub:#b7b7b7;--accent:#18a1ff;--bd:#242424;
+    --radius:14px;
+  }
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Arial,sans-serif}
+  .wrap{max-width:1100px;margin:0 auto;padding:16px;display:grid;grid-template-columns:1fr;gap:12px}
+  @media (min-width: 980px){ .wrap{grid-template-columns:360px 1fr} }
+  .card{background:var(--panel);border:1px solid var(--bd);border-radius:var(--radius);padding:14px}
+  h1{font-size:18px;margin:0 0 6px}
+  .sub{color:var(--sub);font-size:13px}
+  input,textarea,select,button{border:1px solid var(--bd);background:#151515;color:var(--txt);border-radius:10px}
+  input,select,textarea{padding:10px;font-size:14px;width:100%;box-sizing:border-box}
+  textarea{min-height:110px;resize:vertical}
+  button{padding:10px 14px;cursor:pointer}
+  .primary{background:var(--accent);border-color:var(--accent);color:white}
+  .ghost{background:#151515}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .stack{display:flex;flex-direction:column;gap:8px}
+  .chatlog{height:240px;overflow:auto;border:1px solid var(--bd);border-radius:12px;padding:10px;background:#101010}
+  .msg{margin:0 0 10px}
+  .msg .who{font-size:12px;color:#9ca3af;margin-bottom:2px}
+  .msg .bubble{background:#151515;border:1px solid var(--bd);padding:8px;border-radius:10px}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .tab{padding:8px 10px;border:1px solid var(--bd);border-radius:10px;background:#161616;cursor:pointer;font-size:13px}
+  .tab.active{background:var(--accent);border-color:var(--accent);color:white}
+  .panel{display:none}.panel.active{display:block}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{border-bottom:1px solid var(--bd);padding:6px;text-align:left}
+  td input, td select{width:100%}
+  pre{white-space:pre-wrap;word-wrap:break-word;background:#0f0f0f;border:1px solid var(--bd);padding:12px;border-radius:12px;max-height:360px;overflow:auto}
+  .note{font-size:12px;color:#9ca3af}
+  .pill{font-size:12px;color:#9ca3af}
+  .spacer{height:6px}
+</style>
+
+<!-- lib: sql.js (SQLite in browser) -->
+<script src="https://sql.js.org/dist/sql-wasm.js"></script>
+<!-- lib: mermaid for ERD -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad:false, theme:"dark" });</script>
+<!-- lib: WebLLM (LLM local via WebGPU) -->
+<script src="https://unpkg.com/@mlc-ai/web-llm/dist/index.js"></script>
 </head>
 <body>
-  <div class="wrap">
-    <!-- Left: Chat & Controls -->
-    <section class="card">
-      <h1>Assistant base de données</h1>
-      <div class="sub">Décris ton besoin : “je veux une BD pour e-commerce avec clients, produits, commandes…”. L’agent propose un schéma + relations et t’explique la logique.</div>
+<div class="wrap">
 
-      <div class="mt8">
-        <label class="sub">Clé OpenAI (stockée localement) :</label>
-        <input id="apiKey" type="password" placeholder="sk-..." />
-        <div class="row">
-          <button class="ghost" id="saveKey">Enregistrer</button>
-          <span class="pill">Jamais envoyée ailleurs que chez OpenAI</span>
-        </div>
-      </div>
+  <!-- LEFT: chat + controls -->
+  <section class="card stack">
+    <h1>Assistant base de données</h1>
+    <div class="sub">Décris ton besoin. L’IA propose un schéma (tables/champs/relations) + explication. Tu peux ensuite éditer et générer la BD.</div>
 
-      <div class="mt8">
-        <label class="sub">Brief / message :</label>
-        <textarea id="userPrompt" placeholder="Ex : ‘Application de suivi de prêts de livres pour médiathèque, avec lecteurs, ouvrages, emprunts, retours…’"></textarea>
-      </div>
+    <div class="stack">
       <div class="row">
-        <button class="primary" id="askBtn">Proposer un schéma</button>
-        <button class="ghost" id="clearChat">Effacer le chat</button>
+        <label class="row" style="gap:6px">
+          <input type="checkbox" id="useApi"/>
+          <span class="pill">Utiliser une API (au lieu de l’IA locale WebLLM)</span>
+        </label>
       </div>
+      <input id="apiKey" type="password" placeholder="Clé API (si API activée)"/>
+      <input id="apiBase" placeholder="Base URL API (ex: https://api.openrouter.ai/v1)"/>
+      <input id="apiModel" placeholder="Modèle API (ex: meta-llama/llama-3.1-8b-instruct)"/>
+      <div class="note">Si non coché, l’app charge un modèle open-source <b>en local</b> (WebLLM). C’est plus lourd au 1er chargement.</div>
+    </div>
 
-      <div class="chatlog" id="chatlog" aria-live="polite"></div>
-      <div class="note">Astuce : tu peux affiner en répondant “ajoute un champ phone unique pour users”, “change order_items.qty en INTEGER NOT NULL”, etc.</div>
-    </section>
+    <textarea id="userPrompt" placeholder="Ex : ‘BD de médiathèque : lecteurs, ouvrages, emprunts, retours, amendes…’"></textarea>
+    <div class="row">
+      <button class="primary" id="askBtn">Proposer un schéma</button>
+      <button class="ghost" id="clearChat">Effacer</button>
+    </div>
 
-    <!-- Right: Tabs (Schema / ER / SQL / Build) -->
-    <section class="card">
-      <div class="rightHeader">
-        <h1>Conception & Export</h1>
-        <div class="tabs" id="tabs">
-          <div class="tab active" data-tab="schema">Schéma éditable</div>
-          <div class="tab" data-tab="erd">Diagramme ER</div>
-          <div class="tab" data-tab="sql">SQL (DDL)</div>
-          <div class="tab" data-tab="build">Générer & Télécharger</div>
-        </div>
+    <div class="chatlog" id="chatlog" aria-live="polite"></div>
+    <div class="note">Astuce : après la proposition, réponds avec des ajustements (“ajoute phone unique”, “change qty en INTEGER NOT NULL”, etc.).</div>
+  </section>
+
+  <!-- RIGHT: design+export -->
+  <section class="card">
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-tab="schema">Schéma éditable</div>
+      <div class="tab" data-tab="erd">ER diagram</div>
+      <div class="tab" data-tab="sql">SQL (DDL)</div>
+      <div class="tab" data-tab="build">Générer & Télécharger</div>
+    </div>
+
+    <div class="panel active" id="panel-schema">
+      <div class="sub">Tables & champs (édite librement). Ajoute des relations en bas.</div>
+      <div id="schemaEditor"></div>
+      <div class="spacer"></div>
+      <h3 style="margin:8px 0">Relations</h3>
+      <table id="relsTable"><thead><tr><th>Type</th><th>From</th><th>To</th><th></th></tr></thead><tbody></tbody></table>
+      <div class="row">
+        <select id="relType"><option>1-1</option><option>1-N</option><option>N-N</option></select>
+        <input id="relFrom" placeholder="ex: customers"/>
+        <input id="relTo" placeholder="ex: orders"/>
+        <button class="ghost" id="addRel">Ajouter</button>
       </div>
+    </div>
 
-      <!-- Schema -->
-      <div class="panel active" id="panel-schema">
-        <div class="sub">Tables & champs (édite librement). Relations en bas.</div>
-        <div id="schemaEditor"></div>
-        <div class="mt8">
-          <h3 style="margin:10px 0">Relations</h3>
-          <table id="relsTable">
-            <thead><tr><th>Type</th><th>From</th><th>To</th><th></th></tr></thead>
-            <tbody></tbody>
-          </table>
-          <div class="row mt8">
-            <select id="relType">
-              <option>1-1</option>
-              <option>1-N</option>
-              <option>N-N</option>
-            </select>
-            <input id="relFrom" placeholder="ex: customers" />
-            <input id="relTo" placeholder="ex: orders" />
-            <button id="addRel">Ajouter</button>
-          </div>
-        </div>
-      </div>
+    <div class="panel" id="panel-erd">
+      <div class="sub">Aperçu Mermaid</div>
+      <pre id="erdCode"></pre>
+      <div id="erdRender" style="margin-top:8px"></div>
+      <button class="ghost" id="refreshERD">Rafraîchir</button>
+    </div>
 
-      <!-- ERD -->
-      <div class="panel" id="panel-erd">
-        <div class="sub">Aperçu diagramme entité-relation (Mermaid)</div>
-        <pre id="erdCode"></pre>
-        <div id="erdRender" class="mt8"></div>
-        <button class="ghost" id="refreshERD">Rafraîchir</button>
-      </div>
+    <div class="panel" id="panel-sql">
+      <div class="sub">Prévisualisation</div>
+      <pre id="sqlOut">-- Génère via l’onglet “Générer & Télécharger”</pre>
+    </div>
 
-      <!-- SQL -->
-      <div class="panel" id="panel-sql">
-        <div class="sub">Prévisualisation DDL</div>
-        <pre id="sqlOut">-- Génère le schéma via l’onglet “Build”</pre>
+    <div class="panel" id="panel-build">
+      <div class="sub">Tout se fait localement (privacy). </div>
+      <div class="row" style="margin-top:8px">
+        <button class="primary" id="genSQL">Générer le SQL</button>
+        <button class="primary" id="buildDB">Créer le .db</button>
+        <button id="dlSQL" disabled>Télécharger .sql</button>
+        <button id="dlDB" disabled>Télécharger .db</button>
       </div>
-
-      <!-- Build -->
-      <div class="panel" id="panel-build">
-        <div class="sub">Crée la base en local et télécharge les fichiers</div>
-        <div class="footer mt8">
-          <button class="primary" id="genSQL">Générer le SQL</button>
-          <button class="primary" id="buildDB">Créer le .db</button>
-          <button id="dlSQL" disabled>Télécharger .sql</button>
-          <button id="dlDB" disabled>Télécharger .db</button>
-        </div>
-        <div class="note">Tout se fait dans le navigateur (privacy). Pour des jeux de données, ajoute ensuite des INSERTs.</div>
-      </div>
-    </section>
-  </div>
+    </div>
+  </section>
+</div>
 
 <script>
-/* ------------------ State ------------------ */
-let schema = {
-  tables: [
-    // { name:"customers", fields:[{name:"id",type:"INTEGER",pk:true,unique:false,notnull:true,default:null}, ...] }
-  ],
-  relations: [
-    // { type:"1-N", from:"customers", to:"orders" }
-  ],
-  rationale: "" // texte explicatif
-};
-
+/* ---------------- State ---------------- */
+let schema = { tables: [], relations: [], rationale: "" };
 const chatlogEl = document.getElementById('chatlog');
-const apiKeyEl = document.getElementById('apiKey');
-const saveKeyBtn = document.getElementById('saveKey');
-const askBtn = document.getElementById('askBtn');
-const clearChatBtn = document.getElementById('clearChat');
-const userPromptEl = document.getElementById('userPrompt');
+function addMsg(who, html){ const d=document.createElement('div'); d.className="msg"; d.innerHTML=`<div class="who">${who}</div><div class="bubble">${html}</div>`; chatlogEl.appendChild(d); chatlogEl.scrollTop=chatlogEl.scrollHeight; }
 
+/* -------------- Tabs -------------- */
 const tabsEl = document.getElementById('tabs');
 const panels = {
   schema: document.getElementById('panel-schema'),
@@ -166,411 +141,213 @@ const panels = {
   sql: document.getElementById('panel-sql'),
   build: document.getElementById('panel-build'),
 };
-
-const schemaEditorEl = document.getElementById('schemaEditor');
-const relsTableBody = document.querySelector('#relsTable tbody');
-const relTypeEl = document.getElementById('relType');
-const relFromEl = document.getElementById('relFrom');
-const relToEl = document.getElementById('relTo');
-const addRelBtn = document.getElementById('addRel');
-
-const erdCodeEl = document.getElementById('erdCode');
-const erdRenderEl = document.getElementById('erdRender');
-const refreshERDBtn = document.getElementById('refreshERD');
-
-const sqlOutEl = document.getElementById('sqlOut');
-const genSQLBtn = document.getElementById('genSQL');
-const buildDBBtn = document.getElementById('buildDB');
-const dlSQLBtn = document.getElementById('dlSQL');
-const dlDBBtn = document.getElementById('dlDB');
-
-const saved = localStorage.getItem('dbdesigner_api_key');
-if (saved) apiKeyEl.value = atob(saved);
-
-/* ------------------ UI helpers ------------------ */
-function addMsg(who, text) {
-  const div = document.createElement('div');
-  div.className = 'msg';
-  div.innerHTML = `<div class="who">${who}</div><div class="bubble">${text}</div>`;
-  chatlogEl.appendChild(div);
-  chatlogEl.scrollTop = chatlogEl.scrollHeight;
-}
-
-/* ------------------ Tabs ------------------ */
-tabsEl.addEventListener('click', (e)=>{
-  const t = e.target.closest('.tab');
-  if (!t) return;
+tabsEl.addEventListener('click', e => {
+  const t = e.target.closest('.tab'); if(!t) return;
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   t.classList.add('active');
-  const name = t.dataset.tab;
-  Object.entries(panels).forEach(([k,el])=>el.classList.toggle('active', k===name));
+  const name = t.dataset.tab; Object.entries(panels).forEach(([k,el])=>el.classList.toggle('active',k===name));
 });
 
-/* ------------------ Save key ------------------ */
-saveKeyBtn.addEventListener('click', ()=>{
-  const val = apiKeyEl.value.trim();
-  if (!val) return alert('Colle ta clé API.');
-  localStorage.setItem('dbdesigner_api_key', btoa(val));
-  alert('Clé enregistrée localement ✅');
-});
-
-/* ------------------ Chat → propose schema ------------------ */
-const SYSTEM = `
-Tu es un assistant de modélisation de base de données.
-Quand l’utilisateur décrit son besoin, tu réponds STRICTEMENT en JSON valide, sans texte hors JSON, au format:
-{
- "rationale":"(explication courte de la logique)",
- "tables":[
-   {"name":"...", "fields":[
-     {"name":"id","type":"INTEGER","pk":true,"unique":false,"notnull":true,"default":null},
-     {"name":"...","type":"TEXT|INTEGER|REAL|BOOLEAN|DATE|DATETIME","pk":false,"unique":false,"notnull":false,"default":null}
-   ]}
- ],
- "relations":[
-   {"type":"1-1","from":"tableA","to":"tableB"},
-   {"type":"1-N","from":"tableA","to":"tableB"},
-   {"type":"N-N","from":"tableA","to":"tableB"}
- ]
-}
-Rappels:
-- Chaque table DOIT avoir une clé primaire (INTEGER id) si rien d’autre n’est précisé.
-- Les types sont génériques compatibles SQLite.
-- relations: 1-1 => FK unique; 1-N => FK côté N; N-N => table de jointure.
-- Pas d’indexation avancée, pas de trigger.
-- Ne mets rien d’autre que ce JSON.
-`;
-
-async function callLLM(prompt, currentSchema) {
-  const key = apiKeyEl.value.trim();
-  if (!key) { alert('Ajoute ta clé OpenAI.'); return null; }
-
-  const body = {
-    model: "gpt-4.1-mini", /* remplace si besoin */
-    input: [
-      { role:"system", content:SYSTEM },
-      { role:"user", content: prompt },
-      currentSchema && currentSchema.tables?.length ? { role:"user", content:"Contexte schéma actuel: " + JSON.stringify(currentSchema) } : null
-    ].filter(Boolean),
-    max_output_tokens: 1200,
-    temperature: 0.1
-  };
-
-  const res = await fetch("https://api.openai.com/v1/responses", {
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json",
-      "Authorization":`Bearer ${key}`
-    },
-    body: JSON.stringify(body)
-  });
-
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error("API error: " + t);
-  }
-
-  const data = await res.json();
-  // unified "responses" format → first text
-  const txt = data.output_text ?? (data.choices?.[0]?.message?.content ?? "");
-  return txt;
-}
-
-askBtn.addEventListener('click', async ()=>{
-  const prompt = userPromptEl.value.trim();
-  if (!prompt) return alert('Écris un brief.');
-  addMsg("Toi", prompt);
-  addMsg("Agent", "⏳ Je conçois une proposition de schéma…");
-  try {
-    const raw = await callLLM(prompt, schema);
-    // Le modèle doit renvoyer du JSON pur
-    let parsed;
-    try { parsed = JSON.parse(raw); }
-    catch(e){ throw new Error("La réponse n'est pas un JSON valide:\n" + raw); }
-
-    schema = parsed;
-    renderSchemaEditor();
-    renderRelations();
-    addMsg("Agent", "<b>Proposition de schéma mise à jour.</b><br/><small>Va dans l’onglet ER ou SQL pour prévisualiser, puis Build pour créer les fichiers.</small>");
-    // Explication
-    if (schema.rationale) addMsg("Agent (logique)", schema.rationale);
-  } catch(err){
-    addMsg("Agent (erreur)", String(err.message || err));
-  }
-});
-
-clearChatBtn.addEventListener('click', ()=>{
-  chatlogEl.innerHTML = "";
-});
-
-/* ------------------ Schema Editor ------------------ */
+/* -------------- Schema editor -------------- */
+const schemaEditorEl = document.getElementById('schemaEditor');
+const relsTableBody = document.querySelector('#relsTable tbody');
 function renderSchemaEditor(){
-  schemaEditorEl.innerHTML = "";
-  schema.tables = schema.tables || [];
-  schema.tables.forEach((t, ti)=>{
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.style.background = 'var(--muted)';
-    card.style.border = '1px solid #222';
-    card.style.margin = '12px 0';
-
-    const head = document.createElement('div');
-    head.className = 'row';
-    head.innerHTML = `
-      <h3 style="margin:0">${t.name}</h3>
-      <span class="sub"> · </span>
-      <button class="ghost" data-act="addField">+ champ</button>
-      <button class="ghost" data-act="delTable" style="margin-left:auto;color:#f66">Suppr table</button>
-    `;
-    head.querySelector('[data-act="delTable"]').addEventListener('click', ()=>{
-      schema.tables.splice(ti,1); renderSchemaEditor(); renderRelations();
-    });
-    head.querySelector('[data-act="addField"]').addEventListener('click', ()=>{
-      t.fields.push({name:"new_field",type:"TEXT",pk:false,unique:false,notnull:false,default:null});
-      renderSchemaEditor();
-    });
+  schemaEditorEl.innerHTML="";
+  (schema.tables||[]).forEach((t,ti)=>{
+    const card = document.createElement('div'); card.className="card"; card.style.background="var(--muted)";
+    const head = document.createElement('div'); head.className="row";
+    head.innerHTML = `<h3 style="margin:0">${t.name}</h3>
+      <button class="ghost" data-add>+ champ</button>
+      <button class="ghost" data-del style="margin-left:auto;color:#f66">Suppr table</button>`;
+    head.querySelector('[data-add]').onclick=()=>{t.fields.push({name:"new_field",type:"TEXT",pk:false,unique:false,notnull:false,default:null}); renderSchemaEditor();};
+    head.querySelector('[data-del]').onclick=()=>{schema.tables.splice(ti,1); renderSchemaEditor(); renderRelations();};
     card.appendChild(head);
 
-    // fields table
-    const tbl = document.createElement('table');
-    const thead = document.createElement('thead');
-    thead.innerHTML = `<tr><th>Nom</th><th>Type</th><th>PK</th><th>Unique</th><th>Not Null</th><th>Default</th><th></th></tr>`;
-    tbl.appendChild(thead);
-    const tbody = document.createElement('tbody');
-
-    t.fields = t.fields || [];
-    t.fields.forEach((f, fi)=>{
-      const tr = document.createElement('tr');
+    const tbl=document.createElement('table');
+    tbl.innerHTML = `<thead><tr><th>Nom</th><th>Type</th><th>PK</th><th>Unique</th><th>Not null</th><th>Default</th><th></th></tr></thead>`;
+    const tb=document.createElement('tbody');
+    (t.fields||[]).forEach((f,fi)=>{
+      const tr=document.createElement('tr');
       tr.innerHTML = `
-        <td><input value="${f.name}" /></td>
-        <td>
-          <select>
-            ${["INTEGER","TEXT","REAL","BOOLEAN","DATE","DATETIME"].map(tp=>`<option ${tp===f.type?"selected":""}>${tp}</option>`).join("")}
-          </select>
-        </td>
+        <td><input value="${f.name}"/></td>
+        <td><select>${["INTEGER","TEXT","REAL","BOOLEAN","DATE","DATETIME"].map(tp=>`<option ${tp===f.type?"selected":""}>${tp}</option>`).join("")}</select></td>
         <td><input type="checkbox" ${f.pk?"checked":""}></td>
         <td><input type="checkbox" ${f.unique?"checked":""}></td>
         <td><input type="checkbox" ${f.notnull?"checked":""}></td>
-        <td><input value="${f.default ?? ""}" placeholder="null"></td>
-        <td><button class="ghost" data-del>Suppr</button></td>
-      `;
-      const [nameEl, typeEl, pkEl, unEl, nnEl, defEl] = tr.querySelectorAll('input,select');
-      nameEl.addEventListener('input', e=>f.name = e.target.value);
-      typeEl.addEventListener('change', e=>f.type = e.target.value);
-      pkEl.addEventListener('change', e=>f.pk = e.target.checked);
-      unEl.addEventListener('change', e=>f.unique = e.target.checked);
-      nnEl.addEventListener('change', e=>f.notnull = e.target.checked);
-      defEl.addEventListener('input', e=>f.default = e.target.value || null);
-      tr.querySelector('[data-del]').addEventListener('click', ()=>{
-        t.fields.splice(fi,1); renderSchemaEditor();
-      });
-      tbody.appendChild(tr);
+        <td><input value="${f.default??""}" placeholder="null"/></td>
+        <td><button class="ghost" data-del>Suppr</button></td>`;
+      const [nameEl,typeEl,pkEl,unEl,nnEl,defEl] = tr.querySelectorAll('input,select');
+      nameEl.oninput=e=>f.name=e.target.value; typeEl.onchange=e=>f.type=e.target.value;
+      pkEl.onchange=e=>f.pk=e.target.checked; unEl.onchange=e=>f.unique=e.target.checked;
+      nnEl.onchange=e=>f.notnull=e.target.checked; defEl.oninput=e=>f.default=e.target.value||null;
+      tr.querySelector('[data-del]').onclick=()=>{t.fields.splice(fi,1); renderSchemaEditor();};
+      tb.appendChild(tr);
     });
-
-    tbl.appendChild(tbody);
-    card.appendChild(tbl);
-    schemaEditorEl.appendChild(card);
+    tbl.appendChild(tb); card.appendChild(tbl); schemaEditorEl.appendChild(card);
   });
-
-  // add table
-  const addRow = document.createElement('div');
-  addRow.className = 'row';
-  addRow.style.marginTop = '8px';
-  addRow.innerHTML = `
-    <input id="newTableName" placeholder="nom_de_table" />
-    <button class="ghost" id="addTableBtn">+ table</button>
-  `;
-  schemaEditorEl.appendChild(addRow);
-  addRow.querySelector('#addTableBtn').addEventListener('click', ()=>{
-    const nm = addRow.querySelector('#newTableName').value.trim();
-    if (!nm) return;
-    schema.tables.push({
-      name:nm,
-      fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null}]
-    });
+  const add=document.createElement('div'); add.className="row"; add.style.marginTop="8px";
+  add.innerHTML=`<input id="newTableName" placeholder="nom_de_table"/><button class="ghost" id="addTableBtn">+ table</button>`;
+  schemaEditorEl.appendChild(add);
+  add.querySelector('#addTableBtn').onclick=()=>{
+    const nm=add.querySelector('#newTableName').value.trim(); if(!nm) return;
+    schema.tables.push({ name:nm, fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null}] });
     renderSchemaEditor();
-  });
+  };
 }
-
 function renderRelations(){
-  relsTableBody.innerHTML = "";
-  (schema.relations||[]).forEach((r, i)=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${r.type}</td><td>${r.from}</td><td>${r.to}</td>
-      <td><button class="ghost" data-del>Suppr</button></td>
-    `;
-    tr.querySelector('[data-del]').addEventListener('click', ()=>{
-      schema.relations.splice(i,1); renderRelations();
-    });
+  relsTableBody.innerHTML=""; (schema.relations||[]).forEach((r,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${r.type}</td><td>${r.from}</td><td>${r.to}</td><td><button class="ghost" data-del>Suppr</button></td>`;
+    tr.querySelector('[data-del]').onclick=()=>{schema.relations.splice(i,1); renderRelations();};
     relsTableBody.appendChild(tr);
   });
 }
-addRelBtn.addEventListener('click', ()=>{
-  const r = { type:relTypeEl.value, from:relFromEl.value.trim(), to:relToEl.value.trim() };
-  if (!r.from || !r.to) return;
-  schema.relations = schema.relations || [];
-  schema.relations.push(r);
-  renderRelations();
-});
+document.getElementById('addRel').onclick=()=>{
+  const type=document.getElementById('relType').value, from=document.getElementById('relFrom').value.trim(), to=document.getElementById('relTo').value.trim();
+  if(!from||!to) return; schema.relations=schema.relations||[]; schema.relations.push({type,from,to}); renderRelations();
+};
 
-/* ------------------ ERD ------------------ */
-function makeMermaid(schema){
-  let out = "erDiagram\n";
-  (schema.tables||[]).forEach(t=>{
-    out += `  ${t.name} {\n`;
-    (t.fields||[]).forEach(f=>{
-      const pk = f.pk ? " PK" : "";
-      out += `    ${f.type} ${f.name}${pk}\n`;
-    });
-    out += "  }\n";
-  });
-  (schema.relations||[]).forEach(r=>{
-    if (r.type==="1-1") out += `  ${r.from} ||--|| ${r.to} : has\n`;
-    if (r.type==="1-N") out += `  ${r.from} ||--o{ ${r.to} : has\n`;
-    if (r.type==="N-N") out += `  ${r.from} }o--o{ ${r.to} : many\n`;
+/* -------------- ERD + SQL -------------- */
+const erdCodeEl=document.getElementById('erdCode'), erdRenderEl=document.getElementById('erdRender');
+function mermaidFromSchema(s){
+  let out="erDiagram\n";
+  (s.tables||[]).forEach(t=>{ out+=`  ${t.name} {\n`; (t.fields||[]).forEach(f=>{ out+=`    ${f.type} ${f.name}${f.pk?" PK":""}\n`; }); out+="  }\n"; });
+  (s.relations||[]).forEach(r=>{
+    if(r.type==="1-1") out+=`  ${r.from} ||--|| ${r.to} : has\n`;
+    if(r.type==="1-N") out+=`  ${r.from} ||--o{ ${r.to} : has\n`;
+    if(r.type==="N-N") out+=`  ${r.from} }o--o{ ${r.to} : many\n`;
   });
   return out;
 }
+document.getElementById('refreshERD').onclick=async()=>{
+  const code=mermaidFromSchema(schema); erdCodeEl.textContent=code;
+  try{ const {svg}=await mermaid.render('erd_'+Date.now(),code); erdRenderEl.innerHTML=svg; }catch(e){ erdRenderEl.innerHTML=`<div class="note">Erreur Mermaid : ${String(e)}</div>`; }
+};
 
-async function renderERD(){
-  const code = makeMermaid(schema);
-  erdCodeEl.textContent = code;
-  try {
-    const { svg } = await mermaid.render('erd_'+Date.now(), code);
-    erdRenderEl.innerHTML = svg;
-  } catch(e) {
-    erdRenderEl.innerHTML = `<div class="note">Erreur Mermaid : ${String(e)}</div>`;
-  }
-}
-refreshERDBtn.addEventListener('click', renderERD);
-
-/* ------------------ SQL (DDL) ------------------ */
-function escapeIdent(x){ return x.replace(/[^a-zA-Z0-9_]/g,"_"); }
-
-function ddlFromSchema(schema){
-  // 1) tables
-  const tableMap = Object.fromEntries((schema.tables||[]).map(t=>[t.name,t]));
-  // 2) compute FKs based on relations
-  const extraFKs = {};
-  (schema.relations||[]).forEach(r=>{
-    const A = r.from, B = r.to;
-    if (!tableMap[A] || !tableMap[B]) return;
-    if (r.type==="1-1"){
-      // put FK on B referencing A.id with UNIQUE
-      extraFKs[B] = extraFKs[B] || [];
-      extraFKs[B].push({ field:`${A}_id`, ref:A, unique:true });
-    }
-    if (r.type==="1-N"){
-      // put FK on N side → to table
-      extraFKs[B] = extraFKs[B] || [];
-      extraFKs[B].push({ field:`${A}_id`, ref:A, unique:false });
-    }
-    if (r.type==="N-N"){
-      // create join table A_B
-      const jt = `${A}_${B}`;
-      if (!tableMap[jt]){
-        schema.tables.push({
-          name: jt,
-          fields: [
-            {name:`${A}_id`, type:"INTEGER", pk:false, unique:false, notnull:true, default:null},
-            {name:`${B}_id`, type:"INTEGER", pk:false, unique:false, notnull:true, default:null}
-          ]
-        });
-        tableMap[jt] = schema.tables[schema.tables.length-1];
-        extraFKs[jt] = [{field:`${A}_id`,ref:A,unique:false},{field:`${B}_id`,ref:B,unique:false}];
-      }
+const sqlOutEl=document.getElementById('sqlOut');
+function esc(x){return x.replace(/[^a-zA-Z0-9_]/g,"_");}
+function ddlFromSchema(s){
+  const map=Object.fromEntries((s.tables||[]).map(t=>[t.name,t]));
+  const extra={};
+  (s.relations||[]).forEach(r=>{
+    const A=r.from,B=r.to; if(!map[A]||!map[B]) return;
+    if(r.type==="1-1"){ extra[B]=extra[B]||[]; extra[B].push({field:`${A}_id`,ref:A,unique:true}); }
+    if(r.type==="1-N"){ extra[B]=extra[B]||[]; extra[B].push({field:`${A}_id`,ref:A,unique:false}); }
+    if(r.type==="N-N"){
+      const jt=`${A}_${B}`; if(!map[jt]){ s.tables.push({name:jt,fields:[{name:`${A}_id`,type:"INTEGER",pk:false,unique:false,notnull:true,default:null},{name:`${B}_id`,type:"INTEGER",pk:false,unique:false,notnull:true,default:null}]}); map[jt]=s.tables[s.tables.length-1]; extra[jt]=[{field:`${A}_id`,ref:A,unique:false},{field:`${B}_id`,ref:B,unique:false}]; }
     }
   });
-
-  let sql = "PRAGMA foreign_keys = ON;\n\n";
-  (schema.tables||[]).forEach(t=>{
-    const tname = escapeIdent(t.name);
-    const defs = [];
-    const uniques = [];
-
-    // fields
+  let sql="PRAGMA foreign_keys = ON;\n\n";
+  (s.tables||[]).forEach(t=>{
+    const defs=[]; const uniq=[];
     (t.fields||[]).forEach(f=>{
-      const fname = escapeIdent(f.name);
-      const parts = [fname, f.type || "TEXT"];
-      if (f.pk) parts.push("PRIMARY KEY");
-      if (f.notnull) parts.push("NOT NULL");
-      if (f.unique) uniques.push(fname);
-      if (f.default!=null && String(f.default).length) parts.push("DEFAULT "+String(f.default));
-      defs.push(parts.join(" "));
+      const parts=[esc(f.name), f.type||"TEXT"]; if(f.pk) parts.push("PRIMARY KEY"); if(f.notnull) parts.push("NOT NULL"); if(f.unique) uniq.push(esc(f.name)); if(f.default!=null && String(f.default).length) parts.push("DEFAULT "+String(f.default)); defs.push(parts.join(" "));
     });
-
-    // added FKs
-    (extraFKs[t.name]||[]).forEach(fk=>{
-      const fname = escapeIdent(fk.field);
-      if (!t.fields?.some(x=>x.name===fk.field)){
-        defs.push(`${fname} INTEGER`);
-      }
-      defs.push(`FOREIGN KEY (${fname}) REFERENCES ${escapeIdent(fk.ref)}(id) ON DELETE CASCADE`);
-      if (fk.unique) uniques.push(fname);
+    (extra[t.name]||[]).forEach(fk=>{
+      if(!(t.fields||[]).some(x=>x.name===fk.field)) defs.push(`${esc(fk.field)} INTEGER`);
+      defs.push(`FOREIGN KEY (${esc(fk.field)}) REFERENCES ${esc(fk.ref)}(id) ON DELETE CASCADE`);
+      if(fk.unique) uniq.push(esc(fk.field));
     });
-
-    // unique constraints
-    uniques.forEach(u=>{
-      defs.push(`UNIQUE (${escapeIdent(u)})`);
-    });
-
-    sql += `CREATE TABLE IF NOT EXISTS ${tname} (\n  ${defs.join(",\n  ")}\n);\n\n`;
+    uniq.forEach(u=>defs.push(`UNIQUE (${u})`));
+    sql+=`CREATE TABLE IF NOT EXISTS ${esc(t.name)} (\n  ${defs.join(",\n  ")}\n);\n\n`;
   });
-
   return sql;
 }
+document.getElementById('genSQL').onclick=()=>{ sqlOutEl.textContent=ddlFromSchema(structuredClone(schema)); };
 
-genSQLBtn.addEventListener('click', ()=>{
-  const sql = ddlFromSchema(structuredClone(schema));
-  sqlOutEl.textContent = sql;
-  dlSQLBtn.disabled = false;
-});
+/* -------------- Build .db -------------- */
+let SQLJS=null, DB_BLOB=null;
+window.initSqlJs({ locateFile:f=>`https://sql.js.org/dist/${f}` }).then(SQL=>SQLJS=SQL);
+document.getElementById('buildDB').onclick=()=>{
+  if(!SQLJS) return alert("sql.js pas prêt, réessaie.");
+  const sql=ddlFromSchema(structuredClone(schema)); sqlOutEl.textContent=sql;
+  const db=new SQLJS.Database(); try{ db.run(sql); }catch(e){ return alert("Erreur SQL: "+e); }
+  const arr=db.export(); DB_BLOB=new Blob([arr],{type:"application/octet-stream"});
+  document.getElementById('dlDB').disabled=false; document.getElementById('dlSQL').disabled=false;
+};
+document.getElementById('dlSQL').onclick=()=>{
+  const blob=new Blob([sqlOutEl.textContent||"-- vide --"],{type:"text/sql"}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download="schema.sql"; a.click();
+};
+document.getElementById('dlDB').onclick=()=>{
+  if(!DB_BLOB) return; const a=document.createElement('a'); a.href=URL.createObjectURL(DB_BLOB); a.download="database.db"; a.click();
+};
 
-/* ------------------ Build .db via sql.js ------------------ */
-let SQLJS = null;
-let DB_BLOB = null;
+/* -------------- LLMs -------------- */
+const SYSTEM = `Tu es un assistant de modélisation. Réponds STRICTEMENT en JSON:
+{"rationale":"...","tables":[{"name":"...","fields":[{"name":"id","type":"INTEGER","pk":true,"unique":true,"notnull":true,"default":null},{"name":"...","type":"TEXT","pk":false,"unique":false,"notnull":false,"default":null}]}],"relations":[{"type":"1-1","from":"A","to":"B"},{"type":"1-N","from":"A","to":"B"},{"type":"N-N","from":"A","to":"B"}]}`;
 
-window.initSqlJs({ locateFile: f => `https://sql.js.org/dist/${f}` })
-  .then(SQL => { SQLJS = SQL; });
+/* WebLLM (local) */
+let webllmApp=null, webllmReady=false;
+async function initWebLLM(){
+  if(webllmReady) return;
+  addMsg("Agent","⏳ Chargement du modèle local (WebLLM)… première fois un peu longue.");
+  const initProgressCallback = (p)=>{ if(p.text) addMsg("Agent (chargement)", p.text); };
+  // Modèle compact conseillé pour le web (ex: Phi-3-mini ou Qwen 1.5B si dispo côté MLC)
+  const model = "Phi-3-mini-4k-instruct-q4f32_1-MLC"; // tu peux changer
+  webllmApp = await webllm.createWebWorkerMLCEngine(
+    new URL("https://unpkg.com/@mlc-ai/web-llm/dist/worker.js", import.meta.url),
+    { model, initProgressCallback }
+  );
+  webllmReady=true; addMsg("Agent","✅ Modèle local prêt.");
+}
+async function webllmChat(userText){
+  await initWebLLM();
+  const prompt = `${SYSTEM}\nUtilisateur: ${userText}\nRéponds en JSON valide uniquement.`;
+  const out = await webllmApp.chat.completions.create({ messages:[{role:"user",content:prompt}], temperature:0.1, stream:false });
+  return out.choices[0].message.content;
+}
 
-buildDBBtn.addEventListener('click', async ()=>{
-  if (!SQLJS) return alert("sql.js pas encore prêt, réessaie dans 1s.");
-  const sql = ddlFromSchema(structuredClone(schema));
-  sqlOutEl.textContent = sql;
-  const db = new SQLJS.Database();
-  try {
-    db.run(sql);
-  } catch(e){
-    alert("Erreur SQL: " + e);
-    return;
+/* API fallback (OpenRouter/HF/Together…) */
+async function apiChat(userText, base, model, key){
+  const body = {
+    model, messages: [
+      { role: "system", content: SYSTEM },
+      { role: "user", content: userText }
+    ],
+    temperature: 0.1
+  };
+  const res = await fetch(`${base.replace(/\/$/,'')}/chat/completions`, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json", "Authorization":`Bearer ${key}` },
+    body: JSON.stringify(body)
+  });
+  if(!res.ok){ throw new Error(await res.text()); }
+  const data=await res.json();
+  return data.choices?.[0]?.message?.content ?? "";
+}
+
+/* UI: chat */
+document.getElementById('clearChat').onclick=()=>chatlogEl.innerHTML="";
+document.getElementById('askBtn').onclick=async ()=>{
+  const brief = document.getElementById('userPrompt').value.trim();
+  if(!brief) return alert("Écris un brief.");
+  addMsg("Toi", brief);
+  addMsg("Agent","⏳ Je conçois une proposition…");
+
+  const useApi = document.getElementById('useApi').checked;
+  try{
+    let raw;
+    if(useApi){
+      const key=document.getElementById('apiKey').value.trim();
+      const base=document.getElementById('apiBase').value.trim();
+      const model=document.getElementById('apiModel').value.trim();
+      if(!key||!base||!model) throw new Error("Renseigne clé, base URL et modèle.");
+      raw = await apiChat(brief, base, model, key);
+    } else {
+      raw = await webllmChat(brief);
+    }
+    let parsed;
+    try{ parsed=JSON.parse(raw); }catch(e){ throw new Error("Réponse non-JSON:\n"+raw); }
+    schema=parsed; renderSchemaEditor(); renderRelations();
+    addMsg("Agent","✅ Proposition de schéma mise à jour. Va dans “ER” ou “SQL”, puis “Générer & Télécharger”.");
+    if(schema.rationale) addMsg("Agent (logique)", schema.rationale);
+  }catch(err){
+    addMsg("Agent (erreur)", String(err.message||err));
   }
-  const binaryArray = db.export();
-  DB_BLOB = new Blob([binaryArray], { type:"application/octet-stream" });
-  dlDBBtn.disabled = false;
-  dlSQLBtn.disabled = false;
-});
+};
 
-dlSQLBtn.addEventListener('click', ()=>{
-  const sql = sqlOutEl.textContent || "-- vide --";
-  const blob = new Blob([sql], { type:"text/sql" });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = "schema.sql";
-  a.click();
-});
-
-dlDBBtn.addEventListener('click', ()=>{
-  if (!DB_BLOB) return;
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(DB_BLOB);
-  a.download = "database.db";
-  a.click();
-});
-
-/* ------------------ ERD init & first render ------------------ */
-renderSchemaEditor();
-renderRelations();
-renderERD();
+/* init */
+renderSchemaEditor(); renderRelations();
 </script>
 </body>
 </html>
