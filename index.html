@@ -345,9 +345,131 @@ document.getElementById('askBtn').onclick=async ()=>{
     addMsg("Agent (erreur)", String(err.message||err));
   }
 };
+// Helpers overlay
+function showOverlay(titre, sousTitre){
+  const o=document.getElementById('overlay'); o.style.display='flex';
+  document.getElementById('overlayTitle').textContent=titre||'Traitement…';
+  document.getElementById('overlaySub').textContent=sousTitre||'Veuillez patienter';
+}
+function hideOverlay(){ document.getElementById('overlay').style.display='none'; }
+
+// Loader LLM
+const loaderEl = document.getElementById('modelLoader');
+const loaderMsg = document.getElementById('modelMsg');
+const loaderBar = document.getElementById('modelBar');
+document.getElementById('closeLoader').onclick=()=> loaderEl.style.display='none';
+
+// === MISE À JOUR initWebLLM() ===
+async function initWebLLM(){
+  if(webllmReady) return;
+  loaderEl.style.display='block';
+  loaderMsg.textContent = "Préparation du modèle (WebGPU)…";
+  loaderBar.style.width = "5%";
+
+  const initProgressCallback = (p)=>{
+    // p = { progress:0..1, text:"..." } selon WebLLM
+    if (typeof p.progress === "number") {
+      loaderBar.style.width = `${Math.round(p.progress*100)}%`;
+    } else {
+      // indéterminé : on pulse un peu
+      loaderBar.style.width = (parseInt(loaderBar.style.width)||10) + "%";
+    }
+    if (p.text) loaderMsg.textContent = p.text;
+  };
+
+  const model = "Phi-3-mini-4k-instruct-q4f32_1-MLC"; // compact & web-friendly
+  webllmApp = await webllm.createWebWorkerMLCEngine(
+    new URL("https://unpkg.com/@mlc-ai/web-llm/dist/worker.js", import.meta.url),
+    { model, initProgressCallback }
+  );
+  webllmReady = true;
+  loaderBar.style.width = "100%";
+  loaderMsg.textContent = "Modèle prêt ✅";
+  setTimeout(()=> loaderEl.style.display='none', 600);
+}
+
+// Exemple d’utilisation de l’overlay autour d’actions “lentes”
+async function withOverlay(titre, sousTitre, fn){
+  showOverlay(titre, sousTitre);
+  try { return await fn(); }
+  finally { hideOverlay(); }
+}
+
+// Wrap tes actions lentes :
+document.getElementById('askBtn').onclick = async ()=>{
+  const brief = document.getElementById('userPrompt').value.trim();
+  if(!brief) return alert("Écris un brief.");
+  addMsg("Toi", brief);
+  await withOverlay("Génération de proposition", "Le robot conçoit un schéma cohérent…", async ()=>{
+    const useApi = document.getElementById('useApi').checked;
+    let raw;
+    if(useApi){
+      const key=document.getElementById('apiKey').value.trim();
+      const base=document.getElementById('apiBase').value.trim();
+      const model=document.getElementById('apiModel').value.trim();
+      if(!key||!base||!model) throw new Error("Renseigne clé, base URL et modèle.");
+      raw = await apiChat(brief, base, model, key);
+    } else {
+      raw = await webllmChat(brief); // initWebLLM() sera appelé dedans
+    }
+    let parsed; try{ parsed = JSON.parse(raw); } catch(e){ throw new Error("Réponse non-JSON:\n"+raw); }
+    schema = parsed; renderSchemaEditor(); renderRelations();
+    addMsg("🤖", "✅ Proposition mise à jour. Va dans ER / SQL, puis Build.");
+    if(schema.rationale) addMsg("🤖 Logique", schema.rationale);
+  });
+};
+
+// Pareil pour SQL / DB / ERD
+document.getElementById('genSQL').onclick = ()=> withOverlay("Génération SQL", "Création du DDL…", async ()=>{
+  sqlOutEl.textContent = ddlFromSchema(structuredClone(schema));
+  document.getElementById('dlSQL').disabled = false;
+});
+
+document.getElementById('buildDB').onclick = ()=> withOverlay("Création de la base", "Compilation avec sql.js…", async ()=>{
+  if(!SQLJS) throw new Error("sql.js pas prêt, réessaie.");
+  const sql = ddlFromSchema(structuredClone(schema));
+  sqlOutEl.textContent = sql;
+  const db = new SQLJS.Database(); db.run(sql);
+  const arr = db.export(); DB_BLOB = new Blob([arr],{type:"application/octet-stream"});
+  document.getElementById('dlDB').disabled = false;
+  document.getElementById('dlSQL').disabled = false;
+});
+
+document.getElementById('refreshERD').onclick = ()=> withOverlay("Rendu du diagramme ER", "Génération Mermaid…", renderERD);
 
 /* init */
 renderSchemaEditor(); renderRelations();
 </script>
+  <!-- Overlay progress (indéterminé) -->
+<div id="overlay" style="display:none;position:fixed;inset:0;backdrop-filter:blur(2px);
+  background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#141414;border:1px solid #2a2a2a;border-radius:14px; padding:18px; width:min(92vw,420px)">
+    <div style="display:flex;gap:10px;align-items:center">
+      <div class="spinner" style="width:22px;height:22px;border:3px solid #2c2c2c;border-top-color:#18a1ff;border-radius:50%;animation:spin 1s linear infinite"></div>
+      <div>
+        <div id="overlayTitle" style="font-weight:600">Traitement…</div>
+        <div id="overlaySub" class="note">Veuillez patienter</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Barre de progression (chargement LLM local) -->
+<div id="modelLoader" class="card" style="display:none;position:fixed;bottom:16px;left:16px;right:16px;
+  max-width:520px;margin:0 auto;background:#111;border:1px solid #252525;border-radius:12px;z-index:9998">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div style="font-weight:600">Chargement du modèle local</div>
+    <button id="closeLoader" class="ghost" style="padding:6px 10px">Masquer</button>
+  </div>
+  <div id="modelMsg" class="note" style="margin-top:6px">Initialisation…</div>
+  <div style="margin-top:8px;height:10px;background:#1b1b1b;border-radius:8px;overflow:hidden">
+    <div id="modelBar" style="height:100%;width:0%;background:#18a1ff"></div>
+  </div>
+</div>
+
+<style>
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+
 </body>
 </html>
