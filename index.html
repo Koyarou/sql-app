@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>DB Designer — Local AI (WebLLM) + SQL</title>
+<title>DB Designer — Local AI (WebLLM) · Chat → Schéma → SQL → .db</title>
 <style>
   :root{
     --bg:#0b0b0b;--panel:#131313;--muted:#191919;--txt:#f7f7f7;--sub:#b7b7b7;--accent:#18a1ff;--bd:#242424;
@@ -24,7 +24,7 @@
   .ghost{background:#151515}
   .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .stack{display:flex;flex-direction:column;gap:8px}
-  .chatlog{height:240px;overflow:auto;border:1px solid var(--bd);border-radius:12px;padding:10px;background:#101010}
+  .chatlog{height:260px;overflow:auto;border:1px solid var(--bd);border-radius:12px;padding:10px;background:#101010}
   .msg{margin:0 0 10px}
   .msg .who{font-size:12px;color:#9ca3af;margin-bottom:2px}
   .msg .bubble{background:#151515;border:1px solid var(--bd);padding:8px;border-radius:10px}
@@ -39,6 +39,12 @@
   .note{font-size:12px;color:#9ca3af}
   .pill{font-size:12px;color:#9ca3af}
   .spacer{height:6px}
+
+  /* Overlay & loader */
+  #overlay{display:none;position:fixed;inset:0;backdrop-filter:blur(2px);background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center}
+  #modelLoader{display:none;position:fixed;bottom:16px;left:16px;right:16px;max-width:520px;margin:0 auto;background:#111;border:1px solid #252525;border-radius:12px;z-index:9998}
+  .spinner{width:22px;height:22px;border:3px solid #2c2c2c;border-top-color:#18a1ff;border-radius:50%;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 
 <!-- lib: sql.js (SQLite in browser) -->
@@ -50,37 +56,63 @@
 <script src="https://unpkg.com/@mlc-ai/web-llm/dist/index.js"></script>
 </head>
 <body>
+
+<!-- Overlay (étapes longues) -->
+<div id="overlay">
+  <div style="background:#141414;border:1px solid #2a2a2a;border-radius:14px; padding:18px; width:min(92vw,420px)">
+    <div style="display:flex;gap:10px;align-items:center">
+      <div class="spinner"></div>
+      <div>
+        <div id="overlayTitle" style="font-weight:600">Traitement…</div>
+        <div id="overlaySub" class="note">Veuillez patienter</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loader barre (chargement modèle) -->
+<div id="modelLoader" class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div style="font-weight:600">Chargement du modèle IA (local)</div>
+    <button id="closeLoader" class="ghost" style="padding:6px 10px">Masquer</button>
+  </div>
+  <div id="modelMsg" class="note" style="margin-top:6px">Initialisation…</div>
+  <div style="margin-top:8px;height:10px;background:#1b1b1b;border-radius:8px;overflow:hidden">
+    <div id="modelBar" style="height:100%;width:0%;background:#18a1ff"></div>
+  </div>
+</div>
+
 <div class="wrap">
 
-  <!-- LEFT: chat + controls -->
+  <!-- LEFT: Chat + onboarding -->
   <section class="card stack">
     <h1>Assistant base de données</h1>
-    <div class="sub">Décris ton besoin. L’IA propose un schéma (tables/champs/relations) + explication. Tu peux ensuite éditer et générer la BD.</div>
-
-    <div class="stack">
-      <div class="row">
-        <label class="row" style="gap:6px">
-          <input type="checkbox" id="useApi"/>
-          <span class="pill">Utiliser une API (au lieu de l’IA locale WebLLM)</span>
-        </label>
-      </div>
-      <input id="apiKey" type="password" placeholder="Clé API (si API activée)"/>
-      <input id="apiBase" placeholder="Base URL API (ex: https://api.openrouter.ai/v1)"/>
-      <input id="apiModel" placeholder="Modèle API (ex: meta-llama/llama-3.1-8b-instruct)"/>
-      <div class="note">Si non coché, l’app charge un modèle open-source <b>en local</b> (WebLLM). C’est plus lourd au 1er chargement.</div>
+    <div class="sub">
+      Décrivez votre besoin métier. L’assistant conçoit un schéma clair (tables, relations) et l’explique.
+      <br><b>100% local</b> dans votre navigateur (pas de compte, pas de clé).
     </div>
 
-    <textarea id="userPrompt" placeholder="Ex : ‘BD de médiathèque : lecteurs, ouvrages, emprunts, retours, amendes…’"></textarea>
+    <div class="stack">
+      <div class="row" id="quickPrompts">
+        <button class="ghost" data-prompt="CRM simple : entreprises, contacts, opportunités (stades), activités (appels, mails).">CRM</button>
+        <button class="ghost" data-prompt="E-commerce : clients, produits, catégories, commandes, lignes de commande, paiements.">E-commerce</button>
+        <button class="ghost" data-prompt="Médiathèque : lecteurs, ouvrages, emprunts, retours, pénalités.">Médiathèque</button>
+        <button class="ghost" data-prompt="RH : collaborateurs, contrats, services, absences, évaluations, formations.">RH</button>
+      </div>
+      <div class="note">Astuce : cliquez sur un exemple ci-dessus pour démarrer, puis ajustez en langage naturel.</div>
+    </div>
+
+    <textarea id="userPrompt" placeholder="Ex : « Construis une base RH claire pour un service de 120 salariés (collaborateurs, contrats, services, absences, évaluations). »"></textarea>
     <div class="row">
       <button class="primary" id="askBtn">Proposer un schéma</button>
       <button class="ghost" id="clearChat">Effacer</button>
     </div>
 
     <div class="chatlog" id="chatlog" aria-live="polite"></div>
-    <div class="note">Astuce : après la proposition, réponds avec des ajustements (“ajoute phone unique”, “change qty en INTEGER NOT NULL”, etc.).</div>
+    <div class="note">Après la proposition, vous pouvez demander : « ajoute un champ email unique », « passe la relation projets-collaborateurs en N-N », etc.</div>
   </section>
 
-  <!-- RIGHT: design+export -->
+  <!-- RIGHT: Design & export -->
   <section class="card">
     <div class="tabs" id="tabs">
       <div class="tab active" data-tab="schema">Schéma éditable</div>
@@ -89,8 +121,9 @@
       <div class="tab" data-tab="build">Générer & Télécharger</div>
     </div>
 
+    <!-- Schéma -->
     <div class="panel active" id="panel-schema">
-      <div class="sub">Tables & champs (édite librement). Ajoute des relations en bas.</div>
+      <div class="sub">Tables & champs (éditez librement). Ajoutez des relations en bas.</div>
       <div id="schemaEditor"></div>
       <div class="spacer"></div>
       <h3 style="margin:8px 0">Relations</h3>
@@ -103,20 +136,23 @@
       </div>
     </div>
 
+    <!-- ERD -->
     <div class="panel" id="panel-erd">
-      <div class="sub">Aperçu Mermaid</div>
+      <div class="sub">Aperçu Mermaid (diagramme entité-relation)</div>
       <pre id="erdCode"></pre>
       <div id="erdRender" style="margin-top:8px"></div>
       <button class="ghost" id="refreshERD">Rafraîchir</button>
     </div>
 
+    <!-- SQL -->
     <div class="panel" id="panel-sql">
-      <div class="sub">Prévisualisation</div>
+      <div class="sub">Prévisualisation du DDL généré</div>
       <pre id="sqlOut">-- Génère via l’onglet “Générer & Télécharger”</pre>
     </div>
 
+    <!-- Build -->
     <div class="panel" id="panel-build">
-      <div class="sub">Tout se fait localement (privacy). </div>
+      <div class="sub">Tout se fait localement (privacy). Exports prêts pour vos équipes techniques.</div>
       <div class="row" style="margin-top:8px">
         <button class="primary" id="genSQL">Générer le SQL</button>
         <button class="primary" id="buildDB">Créer le .db</button>
@@ -128,12 +164,27 @@
 </div>
 
 <script>
-/* ---------------- State ---------------- */
+/* ---------------- State & utils ---------------- */
 let schema = { tables: [], relations: [], rationale: "" };
 const chatlogEl = document.getElementById('chatlog');
 function addMsg(who, html){ const d=document.createElement('div'); d.className="msg"; d.innerHTML=`<div class="who">${who}</div><div class="bubble">${html}</div>`; chatlogEl.appendChild(d); chatlogEl.scrollTop=chatlogEl.scrollHeight; }
 
-/* -------------- Tabs -------------- */
+/* Overlay helpers */
+function showOverlay(titre, sousTitre){
+  const o=document.getElementById('overlay'); o.style.display='flex';
+  document.getElementById('overlayTitle').textContent=titre||'Traitement…';
+  document.getElementById('overlaySub').textContent=sousTitre||'Veuillez patienter';
+}
+function hideOverlay(){ document.getElementById('overlay').style.display='none'; }
+async function withOverlay(titre, sousTitre, fn){ showOverlay(titre,sousTitre); try{ return await fn(); } finally{ hideOverlay(); } }
+
+/* Loader modèle */
+const loaderEl = document.getElementById('modelLoader');
+const loaderMsg = document.getElementById('modelMsg');
+const loaderBar = document.getElementById('modelBar');
+document.getElementById('closeLoader').onclick=()=> loaderEl.style.display='none';
+
+/* Tabs */
 const tabsEl = document.getElementById('tabs');
 const panels = {
   schema: document.getElementById('panel-schema'),
@@ -148,7 +199,7 @@ tabsEl.addEventListener('click', e => {
   const name = t.dataset.tab; Object.entries(panels).forEach(([k,el])=>el.classList.toggle('active',k===name));
 });
 
-/* -------------- Schema editor -------------- */
+/* Schema editor */
 const schemaEditorEl = document.getElementById('schemaEditor');
 const relsTableBody = document.querySelector('#relsTable tbody');
 function renderSchemaEditor(){
@@ -207,7 +258,7 @@ document.getElementById('addRel').onclick=()=>{
   if(!from||!to) return; schema.relations=schema.relations||[]; schema.relations.push({type,from,to}); renderRelations();
 };
 
-/* -------------- ERD + SQL -------------- */
+/* ERD + SQL */
 const erdCodeEl=document.getElementById('erdCode'), erdRenderEl=document.getElementById('erdRender');
 function mermaidFromSchema(s){
   let out="erDiagram\n";
@@ -219,10 +270,11 @@ function mermaidFromSchema(s){
   });
   return out;
 }
-document.getElementById('refreshERD').onclick=async()=>{
+async function renderERD(){
   const code=mermaidFromSchema(schema); erdCodeEl.textContent=code;
   try{ const {svg}=await mermaid.render('erd_'+Date.now(),code); erdRenderEl.innerHTML=svg; }catch(e){ erdRenderEl.innerHTML=`<div class="note">Erreur Mermaid : ${String(e)}</div>`; }
-};
+}
+document.getElementById('refreshERD').onclick = ()=> withOverlay("Rendu du diagramme ER", "Génération Mermaid…", renderERD);
 
 const sqlOutEl=document.getElementById('sqlOut');
 function esc(x){return x.replace(/[^a-zA-Z0-9_]/g,"_");}
@@ -253,178 +305,14 @@ function ddlFromSchema(s){
   });
   return sql;
 }
-document.getElementById('genSQL').onclick=()=>{ sqlOutEl.textContent=ddlFromSchema(structuredClone(schema)); };
-
-/* -------------- Build .db -------------- */
-let SQLJS=null, DB_BLOB=null;
-window.initSqlJs({ locateFile:f=>`https://sql.js.org/dist/${f}` }).then(SQL=>SQLJS=SQL);
-document.getElementById('buildDB').onclick=()=>{
-  if(!SQLJS) return alert("sql.js pas prêt, réessaie.");
-  const sql=ddlFromSchema(structuredClone(schema)); sqlOutEl.textContent=sql;
-  const db=new SQLJS.Database(); try{ db.run(sql); }catch(e){ return alert("Erreur SQL: "+e); }
-  const arr=db.export(); DB_BLOB=new Blob([arr],{type:"application/octet-stream"});
-  document.getElementById('dlDB').disabled=false; document.getElementById('dlSQL').disabled=false;
-};
-document.getElementById('dlSQL').onclick=()=>{
-  const blob=new Blob([sqlOutEl.textContent||"-- vide --"],{type:"text/sql"}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download="schema.sql"; a.click();
-};
-document.getElementById('dlDB').onclick=()=>{
-  if(!DB_BLOB) return; const a=document.createElement('a'); a.href=URL.createObjectURL(DB_BLOB); a.download="database.db"; a.click();
-};
-
-/* -------------- LLMs -------------- */
-const SYSTEM = `Tu es un assistant de modélisation. Réponds STRICTEMENT en JSON:
-{"rationale":"...","tables":[{"name":"...","fields":[{"name":"id","type":"INTEGER","pk":true,"unique":true,"notnull":true,"default":null},{"name":"...","type":"TEXT","pk":false,"unique":false,"notnull":false,"default":null}]}],"relations":[{"type":"1-1","from":"A","to":"B"},{"type":"1-N","from":"A","to":"B"},{"type":"N-N","from":"A","to":"B"}]}`;
-
-/* WebLLM (local) */
-let webllmApp=null, webllmReady=false;
-async function initWebLLM(){
-  if(webllmReady) return;
-  addMsg("Agent","⏳ Chargement du modèle local (WebLLM)… première fois un peu longue.");
-  const initProgressCallback = (p)=>{ if(p.text) addMsg("Agent (chargement)", p.text); };
-  // Modèle compact conseillé pour le web (ex: Phi-3-mini ou Qwen 1.5B si dispo côté MLC)
-  const model = "Phi-3-mini-4k-instruct-q4f32_1-MLC"; // tu peux changer
-  webllmApp = await webllm.createWebWorkerMLCEngine(
-    new URL("https://unpkg.com/@mlc-ai/web-llm/dist/worker.js", import.meta.url),
-    { model, initProgressCallback }
-  );
-  webllmReady=true; addMsg("Agent","✅ Modèle local prêt.");
-}
-async function webllmChat(userText){
-  await initWebLLM();
-  const prompt = `${SYSTEM}\nUtilisateur: ${userText}\nRéponds en JSON valide uniquement.`;
-  const out = await webllmApp.chat.completions.create({ messages:[{role:"user",content:prompt}], temperature:0.1, stream:false });
-  return out.choices[0].message.content;
-}
-
-/* API fallback (OpenRouter/HF/Together…) */
-async function apiChat(userText, base, model, key){
-  const body = {
-    model, messages: [
-      { role: "system", content: SYSTEM },
-      { role: "user", content: userText }
-    ],
-    temperature: 0.1
-  };
-  const res = await fetch(`${base.replace(/\/$/,'')}/chat/completions`, {
-    method:"POST",
-    headers:{ "Content-Type":"application/json", "Authorization":`Bearer ${key}` },
-    body: JSON.stringify(body)
-  });
-  if(!res.ok){ throw new Error(await res.text()); }
-  const data=await res.json();
-  return data.choices?.[0]?.message?.content ?? "";
-}
-
-/* UI: chat */
-document.getElementById('clearChat').onclick=()=>chatlogEl.innerHTML="";
-document.getElementById('askBtn').onclick=async ()=>{
-  const brief = document.getElementById('userPrompt').value.trim();
-  if(!brief) return alert("Écris un brief.");
-  addMsg("Toi", brief);
-  addMsg("Agent","⏳ Je conçois une proposition…");
-
-  const useApi = document.getElementById('useApi').checked;
-  try{
-    let raw;
-    if(useApi){
-      const key=document.getElementById('apiKey').value.trim();
-      const base=document.getElementById('apiBase').value.trim();
-      const model=document.getElementById('apiModel').value.trim();
-      if(!key||!base||!model) throw new Error("Renseigne clé, base URL et modèle.");
-      raw = await apiChat(brief, base, model, key);
-    } else {
-      raw = await webllmChat(brief);
-    }
-    let parsed;
-    try{ parsed=JSON.parse(raw); }catch(e){ throw new Error("Réponse non-JSON:\n"+raw); }
-    schema=parsed; renderSchemaEditor(); renderRelations();
-    addMsg("Agent","✅ Proposition de schéma mise à jour. Va dans “ER” ou “SQL”, puis “Générer & Télécharger”.");
-    if(schema.rationale) addMsg("Agent (logique)", schema.rationale);
-  }catch(err){
-    addMsg("Agent (erreur)", String(err.message||err));
-  }
-};
-// Helpers overlay
-function showOverlay(titre, sousTitre){
-  const o=document.getElementById('overlay'); o.style.display='flex';
-  document.getElementById('overlayTitle').textContent=titre||'Traitement…';
-  document.getElementById('overlaySub').textContent=sousTitre||'Veuillez patienter';
-}
-function hideOverlay(){ document.getElementById('overlay').style.display='none'; }
-
-// Loader LLM
-const loaderEl = document.getElementById('modelLoader');
-const loaderMsg = document.getElementById('modelMsg');
-const loaderBar = document.getElementById('modelBar');
-document.getElementById('closeLoader').onclick=()=> loaderEl.style.display='none';
-
-// === MISE À JOUR initWebLLM() ===
-async function initWebLLM(){
-  if(webllmReady) return;
-  loaderEl.style.display='block';
-  loaderMsg.textContent = "Préparation du modèle (WebGPU)…";
-  loaderBar.style.width = "5%";
-
-  const initProgressCallback = (p)=>{
-    // p = { progress:0..1, text:"..." } selon WebLLM
-    if (typeof p.progress === "number") {
-      loaderBar.style.width = `${Math.round(p.progress*100)}%`;
-    } else {
-      // indéterminé : on pulse un peu
-      loaderBar.style.width = (parseInt(loaderBar.style.width)||10) + "%";
-    }
-    if (p.text) loaderMsg.textContent = p.text;
-  };
-
-  const model = "Phi-3-mini-4k-instruct-q4f32_1-MLC"; // compact & web-friendly
-  webllmApp = await webllm.createWebWorkerMLCEngine(
-    new URL("https://unpkg.com/@mlc-ai/web-llm/dist/worker.js", import.meta.url),
-    { model, initProgressCallback }
-  );
-  webllmReady = true;
-  loaderBar.style.width = "100%";
-  loaderMsg.textContent = "Modèle prêt ✅";
-  setTimeout(()=> loaderEl.style.display='none', 600);
-}
-
-// Exemple d’utilisation de l’overlay autour d’actions “lentes”
-async function withOverlay(titre, sousTitre, fn){
-  showOverlay(titre, sousTitre);
-  try { return await fn(); }
-  finally { hideOverlay(); }
-}
-
-// Wrap tes actions lentes :
-document.getElementById('askBtn').onclick = async ()=>{
-  const brief = document.getElementById('userPrompt').value.trim();
-  if(!brief) return alert("Écris un brief.");
-  addMsg("Toi", brief);
-  await withOverlay("Génération de proposition", "Le robot conçoit un schéma cohérent…", async ()=>{
-    const useApi = document.getElementById('useApi').checked;
-    let raw;
-    if(useApi){
-      const key=document.getElementById('apiKey').value.trim();
-      const base=document.getElementById('apiBase').value.trim();
-      const model=document.getElementById('apiModel').value.trim();
-      if(!key||!base||!model) throw new Error("Renseigne clé, base URL et modèle.");
-      raw = await apiChat(brief, base, model, key);
-    } else {
-      raw = await webllmChat(brief); // initWebLLM() sera appelé dedans
-    }
-    let parsed; try{ parsed = JSON.parse(raw); } catch(e){ throw new Error("Réponse non-JSON:\n"+raw); }
-    schema = parsed; renderSchemaEditor(); renderRelations();
-    addMsg("🤖", "✅ Proposition mise à jour. Va dans ER / SQL, puis Build.");
-    if(schema.rationale) addMsg("🤖 Logique", schema.rationale);
-  });
-};
-
-// Pareil pour SQL / DB / ERD
 document.getElementById('genSQL').onclick = ()=> withOverlay("Génération SQL", "Création du DDL…", async ()=>{
   sqlOutEl.textContent = ddlFromSchema(structuredClone(schema));
   document.getElementById('dlSQL').disabled = false;
 });
 
+/* Build .db */
+let SQLJS=null, DB_BLOB=null;
+window.initSqlJs({ locateFile:f=>`https://sql.js.org/dist/${f}` }).then(SQL=>SQLJS=SQL);
 document.getElementById('buildDB').onclick = ()=> withOverlay("Création de la base", "Compilation avec sql.js…", async ()=>{
   if(!SQLJS) throw new Error("sql.js pas prêt, réessaie.");
   const sql = ddlFromSchema(structuredClone(schema));
@@ -434,42 +322,101 @@ document.getElementById('buildDB').onclick = ()=> withOverlay("Création de la b
   document.getElementById('dlDB').disabled = false;
   document.getElementById('dlSQL').disabled = false;
 });
+document.getElementById('dlSQL').onclick=()=>{
+  const blob=new Blob([sqlOutEl.textContent||"-- vide --"],{type:"text/sql"}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download="schema.sql"; a.click();
+};
+document.getElementById('dlDB').onclick=()=>{
+  if(!DB_BLOB) return; const a=document.createElement('a'); a.href=URL.createObjectURL(DB_BLOB); a.download="database.db"; a.click();
+};
 
-document.getElementById('refreshERD').onclick = ()=> withOverlay("Rendu du diagramme ER", "Génération Mermaid…", renderERD);
+/* LLM (WebLLM local) */
+const SYSTEM = `Tu es un architecte de données pédagogue.
+Produis d'abord un schéma pensé pour des décideurs non techniques (clarté métier, normalisation simple).
+Réponds STRICTEMENT en JSON valide, et rien d'autre, au format:
+{
+ "rationale":"(2-3 phrases en français, vocabulaire métier, pourquoi ce découpage, la logique des relations)",
+ "tables":[
+   {"name":"...", "fields":[
+     {"name":"id","type":"INTEGER","pk":true,"unique":true,"notnull":true,"default":null},
+     {"name":"...","type":"TEXT|INTEGER|REAL|BOOLEAN|DATE|DATETIME","pk":false,"unique":false,"notnull":false,"default":null}
+   ]}
+ ],
+ "relations":[
+   {"type":"1-1","from":"tableA","to":"tableB"},
+   {"type":"1-N","from":"tableA","to":"tableB"},
+   {"type":"N-N","from":"tableA","to":"tableB"}
+ ]
+}
+Rappels:
+- Chaque table a une clé primaire.
+- 1-1: contrainte unique côté 'to'; 1-N: clé étrangère côté N; N-N: table de jointure.
+- Types génériques compatibles SQLite.`;
 
-/* init */
+let webllmApp=null, webllmReady=false;
+async function initWebLLM(){
+  if(webllmReady) return;
+  loaderEl.style.display='block';
+  loaderMsg.textContent = "Préparation du modèle (WebGPU)…";
+  loaderBar.style.width = "5%";
+
+  const initProgressCallback = (p)=>{
+    if (typeof p.progress === "number") {
+      loaderBar.style.width = `${Math.round(p.progress*100)}%`;
+    } else {
+      loaderBar.style.width = (parseInt(loaderBar.style.width)||10) + "%";
+    }
+    if (p.text) loaderMsg.textContent = p.text;
+  };
+
+  // Modèle compact conseillé pour le web (nom du bundle MLC)
+  const model = "Phi-3-mini-4k-instruct-q4f32_1-MLC";
+  webllmApp = await webllm.createWebWorkerMLCEngine(
+    new URL("https://unpkg.com/@mlc-ai/web-llm/dist/worker.js", import.meta.url),
+    { model, initProgressCallback }
+  );
+  webllmReady=true;
+  loaderBar.style.width = "100%";
+  loaderMsg.textContent = "Modèle prêt ✅";
+  setTimeout(()=> loaderEl.style.display='none', 600);
+}
+async function webllmChat(userText){
+  await initWebLLM();
+  const prompt = `${SYSTEM}\nUtilisateur: ${userText}\nRéponds en JSON valide uniquement.`;
+  const out = await webllmApp.chat.completions.create({ messages:[{role:"user",content:prompt}], temperature:0.1, stream:false });
+  return out.choices[0].message.content;
+}
+
+/* Chat UI */
+document.getElementById('clearChat').onclick=()=>chatlogEl.innerHTML="";
+document.getElementById('quickPrompts').addEventListener('click', (e)=>{
+  const b = e.target.closest('button[data-prompt]');
+  if(!b) return;
+  document.getElementById('userPrompt').value = b.getAttribute('data-prompt');
+});
+
+document.getElementById('askBtn').onclick = async ()=>{
+  const brief = document.getElementById('userPrompt').value.trim();
+  if(!brief) return alert("Écris un brief.");
+  addMsg("Vous", brief);
+  await withOverlay("Génération de proposition", "Le robot conçoit un schéma cohérent…", async ()=>{
+    const raw = await webllmChat(brief);
+    let parsed; 
+    try { parsed = JSON.parse(raw); } 
+    catch(e){ throw new Error("Réponse non-JSON:\n"+raw); }
+    schema = parsed; 
+    renderSchemaEditor(); 
+    renderRelations();
+    addMsg("🤖", "✅ Proposition mise à jour. Consultez « ER » ou « SQL », puis « Générer & Télécharger ».");
+    if(schema.rationale) addMsg("🤖 Logique", schema.rationale);
+  });
+};
+
+/* Init de base */
 renderSchemaEditor(); renderRelations();
+
+/* Pré-charger le modèle en douceur */
+const idle = window.requestIdleCallback || ((fn)=>setTimeout(fn, 1200));
+idle(()=> { initWebLLM().catch(()=>{}); });
 </script>
-  <!-- Overlay progress (indéterminé) -->
-<div id="overlay" style="display:none;position:fixed;inset:0;backdrop-filter:blur(2px);
-  background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;">
-  <div style="background:#141414;border:1px solid #2a2a2a;border-radius:14px; padding:18px; width:min(92vw,420px)">
-    <div style="display:flex;gap:10px;align-items:center">
-      <div class="spinner" style="width:22px;height:22px;border:3px solid #2c2c2c;border-top-color:#18a1ff;border-radius:50%;animation:spin 1s linear infinite"></div>
-      <div>
-        <div id="overlayTitle" style="font-weight:600">Traitement…</div>
-        <div id="overlaySub" class="note">Veuillez patienter</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Barre de progression (chargement LLM local) -->
-<div id="modelLoader" class="card" style="display:none;position:fixed;bottom:16px;left:16px;right:16px;
-  max-width:520px;margin:0 auto;background:#111;border:1px solid #252525;border-radius:12px;z-index:9998">
-  <div style="display:flex;justify-content:space-between;align-items:center">
-    <div style="font-weight:600">Chargement du modèle local</div>
-    <button id="closeLoader" class="ghost" style="padding:6px 10px">Masquer</button>
-  </div>
-  <div id="modelMsg" class="note" style="margin-top:6px">Initialisation…</div>
-  <div style="margin-top:8px;height:10px;background:#1b1b1b;border-radius:8px;overflow:hidden">
-    <div id="modelBar" style="height:100%;width:0%;background:#18a1ff"></div>
-  </div>
-</div>
-
-<style>
-@keyframes spin{to{transform:rotate(360deg)}}
-</style>
-
 </body>
 </html>
