@@ -1,50 +1,71 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" data-theme="dark">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>DB Designer — Local AI (WebLLM) · Chat → Schéma → SQL → .db</title>
 <style>
+  /* ===== THEME TOKENS ===== */
   :root{
     --bg:#0b0b0b;--panel:#131313;--muted:#191919;--txt:#f7f7f7;--sub:#b7b7b7;--accent:#18a1ff;--bd:#242424;
-    --radius:14px;
+    --radius:14px;--shadow:0 10px 24px rgba(0,0,0,.35)
   }
+  html[data-theme="light"]{
+    --bg:#f8fafc;--panel:#ffffff;--muted:#f2f4f7;--txt:#0b0b0f;--sub:#64748b;--accent:#0ea5e9;--bd:#e5e7eb;
+    --shadow:0 10px 24px rgba(2,6,23,.08)
+  }
+
   html,body{height:100%}
   body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Arial,sans-serif}
   .wrap{max-width:1100px;margin:0 auto;padding:16px;display:grid;grid-template-columns:1fr;gap:12px}
   @media (min-width: 980px){ .wrap{grid-template-columns:360px 1fr} }
-  .card{background:var(--panel);border:1px solid var(--bd);border-radius:var(--radius);padding:14px}
+  .card{background:var(--panel);border:1px solid var(--bd);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}
   h1{font-size:18px;margin:0 0 6px}
   .sub{color:var(--sub);font-size:13px}
   input,textarea,select,button{border:1px solid var(--bd);background:#151515;color:var(--txt);border-radius:10px}
+  html[data-theme="light"] input, html[data-theme="light"] textarea, html[data-theme="light"] select, html[data-theme="light"] button{background:#fff}
   input,select,textarea{padding:10px;font-size:14px;width:100%;box-sizing:border-box}
   textarea{min-height:110px;resize:vertical}
-  button{padding:10px 14px;cursor:pointer}
+  button{padding:10px 14px;cursor:pointer;transition:transform .02s}
+  button:active{transform:translateY(1px)}
   .primary{background:var(--accent);border-color:var(--accent);color:white}
-  .ghost{background:#151515}
+  .ghost{background:transparent}
   .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .stack{display:flex;flex-direction:column;gap:8px}
-  .chatlog{height:260px;overflow:auto;border:1px solid var(--bd);border-radius:12px;padding:10px;background:#101010}
+  .chatlog{height:260px;overflow:auto;border:1px solid var(--bd);border-radius:12px;padding:10px;background:color-mix(in oklab, var(--panel), black 6%)}
+  html[data-theme="light"] .chatlog{background:color-mix(in oklab, var(--panel), white 4%)}
   .msg{margin:0 0 10px}
-  .msg .who{font-size:12px;color:#9ca3af;margin-bottom:2px}
-  .msg .bubble{background:#151515;border:1px solid var(--bd);padding:8px;border-radius:10px}
+  .msg .who{font-size:12px;color:var(--sub);margin-bottom:2px}
+  .msg .bubble{background:color-mix(in oklab, var(--panel), black 8%);border:1px solid var(--bd);padding:8px;border-radius:10px}
+  html[data-theme="light"] .msg .bubble{background:#fff}
   .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
-  .tab{padding:8px 10px;border:1px solid var(--bd);border-radius:10px;background:#161616;cursor:pointer;font-size:13px}
+  .tab{padding:8px 10px;border:1px solid var(--bd);border-radius:10px;background:transparent;cursor:pointer;font-size:13px}
   .tab.active{background:var(--accent);border-color:var(--accent);color:white}
   .panel{display:none}.panel.active{display:block}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th,td{border-bottom:1px solid var(--bd);padding:6px;text-align:left}
   td input, td select{width:100%}
-  pre{white-space:pre-wrap;word-wrap:break-word;background:#0f0f0f;border:1px solid var(--bd);padding:12px;border-radius:12px;max-height:360px;overflow:auto}
-  .note{font-size:12px;color:#9ca3af}
-  .pill{font-size:12px;color:#9ca3af}
+  pre{white-space:pre-wrap;word-wrap:break-word;background:color-mix(in oklab, var(--panel), black 8%);border:1px solid var(--bd);padding:12px;border-radius:12px;max-height:360px;overflow:auto}
+  html[data-theme="light"] pre{background:#fff}
+  .note{font-size:12px;color:var(--sub)}
+  .pill{font-size:12px;color:var(--sub)}
   .spacer{height:6px}
+  .topbar{position:sticky;top:0;z-index:10;display:flex;justify-content:flex-end;gap:8px;padding:10px 16px}
 
   /* Overlay & loader */
   #overlay{display:none;position:fixed;inset:0;backdrop-filter:blur(2px);background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center}
-  #modelLoader{display:none;position:fixed;bottom:16px;left:16px;right:16px;max-width:520px;margin:0 auto;background:#111;border:1px solid #252525;border-radius:12px;z-index:9998}
-  .spinner{width:22px;height:22px;border:3px solid #2c2c2c;border-top-color:#18a1ff;border-radius:50%;animation:spin 1s linear infinite}
+  html[data-theme="light"] #overlay{background:rgba(2,6,23,.12)}
+  .spinner{width:22px;height:22px;border:3px solid color-mix(in oklab, var(--panel), black 18%);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* Model loader (progress bar) */
+  #modelLoader{display:none;position:fixed;bottom:16px;left:16px;right:16px;max-width:560px;margin:0 auto;background:var(--panel);border:1px solid var(--bd);border-radius:12px;z-index:9998;box-shadow:var(--shadow)}
+  #barWrap{margin-top:8px;height:10px;background:color-mix(in oklab, var(--panel), black 12%);border-radius:8px;overflow:hidden;position:relative}
+  html[data-theme="light"] #barWrap{background:#eef2f7}
+  #modelBar{height:100%;width:0%;background:var(--accent);transition:width .2s ease}
+  /* Indeterminate stripe fallback */
+  #stripe{display:none;position:absolute;inset:0;background:repeating-linear-gradient(45deg, rgba(255,255,255,.15) 0 10px, rgba(0,0,0,.12) 10px 20px);animation:move 1.2s linear infinite}
+  @keyframes move{from{background-position:0 0}to{background-position:40px 0}}
 </style>
 
 <!-- lib: sql.js (SQLite in browser) -->
@@ -57,11 +78,15 @@
 </head>
 <body>
 
+<div class="topbar">
+  <button id="themeBtn" class="ghost" title="Basculer clair/sombre">🌓 Thème</button>
+</div>
+
 <!-- Overlay (étapes longues) -->
-<div id="overlay">
-  <div style="background:#141414;border:1px solid #2a2a2a;border-radius:14px; padding:18px; width:min(92vw,420px)">
+<div id="overlay" role="alert" aria-live="polite">
+  <div class="card" style="max-width:420px">
     <div style="display:flex;gap:10px;align-items:center">
-      <div class="spinner"></div>
+      <div class="spinner" aria-hidden="true"></div>
       <div>
         <div id="overlayTitle" style="font-weight:600">Traitement…</div>
         <div id="overlaySub" class="note">Veuillez patienter</div>
@@ -71,14 +96,15 @@
 </div>
 
 <!-- Loader barre (chargement modèle) -->
-<div id="modelLoader" class="card">
+<div id="modelLoader" class="card" aria-live="polite">
   <div style="display:flex;justify-content:space-between;align-items:center">
     <div style="font-weight:600">Chargement du modèle IA (local)</div>
     <button id="closeLoader" class="ghost" style="padding:6px 10px">Masquer</button>
   </div>
   <div id="modelMsg" class="note" style="margin-top:6px">Initialisation…</div>
-  <div style="margin-top:8px;height:10px;background:#1b1b1b;border-radius:8px;overflow:hidden">
-    <div id="modelBar" style="height:100%;width:0%;background:#18a1ff"></div>
+  <div id="barWrap">
+    <div id="modelBar"></div>
+    <div id="stripe"></div>
   </div>
 </div>
 
@@ -164,12 +190,29 @@
 </div>
 
 <script>
-/* ---------------- State & utils ---------------- */
+/* ========= THEME toggle ========= */
+const themeBtn = document.getElementById('themeBtn');
+const savedTheme = localStorage.getItem('theme');
+if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+themeBtn.onclick = () => {
+  const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  // mermaid theme switch
+  mermaid.initialize({ startOnLoad:false, theme: next === 'dark' ? 'dark' : 'default' });
+};
+
+/* ========= State & utils ========= */
 let schema = { tables: [], relations: [], rationale: "" };
 const chatlogEl = document.getElementById('chatlog');
-function addMsg(who, html){ const d=document.createElement('div'); d.className="msg"; d.innerHTML=`<div class="who">${who}</div><div class="bubble">${html}</div>`; chatlogEl.appendChild(d); chatlogEl.scrollTop=chatlogEl.scrollHeight; }
+function addMsg(who, html){
+  const d=document.createElement('div'); d.className="msg";
+  d.innerHTML=`<div class="who">${who}</div><div class="bubble">${html}</div>`;
+  chatlogEl.appendChild(d); chatlogEl.scrollTop=chatlogEl.scrollHeight;
+}
 
-/* Overlay helpers */
+/* ========= Overlay helpers ========= */
 function showOverlay(titre, sousTitre){
   const o=document.getElementById('overlay'); o.style.display='flex';
   document.getElementById('overlayTitle').textContent=titre||'Traitement…';
@@ -178,13 +221,36 @@ function showOverlay(titre, sousTitre){
 function hideOverlay(){ document.getElementById('overlay').style.display='none'; }
 async function withOverlay(titre, sousTitre, fn){ showOverlay(titre,sousTitre); try{ return await fn(); } finally{ hideOverlay(); } }
 
-/* Loader modèle */
+/* ========= Loader modèle ========= */
 const loaderEl = document.getElementById('modelLoader');
 const loaderMsg = document.getElementById('modelMsg');
 const loaderBar = document.getElementById('modelBar');
+const stripe = document.getElementById('stripe');
 document.getElementById('closeLoader').onclick=()=> loaderEl.style.display='none';
 
-/* Tabs */
+// Progress updater robuste (gère % ou indéterminé)
+let lastManual = 8;
+function updateProgress(p){
+  // p may have progress (0..1) or text that contains %
+  if (p && typeof p.progress === 'number' && p.progress >= 0 && p.progress <= 1){
+    const pct = Math.max(1, Math.min(100, Math.round(p.progress*100)));
+    loaderBar.style.width = pct + '%';
+    stripe.style.display = 'none';
+  } else {
+    // Try to parse % from text
+    if (p && p.text){
+      const m = p.text.match(/(\d{1,3})\s?%/);
+      if (m){ loaderBar.style.width = Math.max(1, Math.min(100, parseInt(m[1],10))) + '%'; stripe.style.display='none'; return; }
+    }
+    // Indéterminé → barre animée
+    stripe.style.display='block';
+    lastManual = Math.min(97, lastManual + 1);
+    loaderBar.style.width = lastManual + '%';
+  }
+  if (p && p.text) loaderMsg.textContent = p.text;
+}
+
+/* ========= Tabs ========= */
 const tabsEl = document.getElementById('tabs');
 const panels = {
   schema: document.getElementById('panel-schema'),
@@ -199,7 +265,7 @@ tabsEl.addEventListener('click', e => {
   const name = t.dataset.tab; Object.entries(panels).forEach(([k,el])=>el.classList.toggle('active',k===name));
 });
 
-/* Schema editor */
+/* ========= Schema editor ========= */
 const schemaEditorEl = document.getElementById('schemaEditor');
 const relsTableBody = document.querySelector('#relsTable tbody');
 function renderSchemaEditor(){
@@ -209,7 +275,7 @@ function renderSchemaEditor(){
     const head = document.createElement('div'); head.className="row";
     head.innerHTML = `<h3 style="margin:0">${t.name}</h3>
       <button class="ghost" data-add>+ champ</button>
-      <button class="ghost" data-del style="margin-left:auto;color:#f66">Suppr table</button>`;
+      <button class="ghost" data-del style="margin-left:auto;color:#e11d48">Suppr table</button>`;
     head.querySelector('[data-add]').onclick=()=>{t.fields.push({name:"new_field",type:"TEXT",pk:false,unique:false,notnull:false,default:null}); renderSchemaEditor();};
     head.querySelector('[data-del]').onclick=()=>{schema.tables.splice(ti,1); renderSchemaEditor(); renderRelations();};
     card.appendChild(head);
@@ -258,7 +324,7 @@ document.getElementById('addRel').onclick=()=>{
   if(!from||!to) return; schema.relations=schema.relations||[]; schema.relations.push({type,from,to}); renderRelations();
 };
 
-/* ERD + SQL */
+/* ========= ERD + SQL ========= */
 const erdCodeEl=document.getElementById('erdCode'), erdRenderEl=document.getElementById('erdRender');
 function mermaidFromSchema(s){
   let out="erDiagram\n";
@@ -310,7 +376,7 @@ document.getElementById('genSQL').onclick = ()=> withOverlay("Génération SQL",
   document.getElementById('dlSQL').disabled = false;
 });
 
-/* Build .db */
+/* ========= Build .db ========= */
 let SQLJS=null, DB_BLOB=null;
 window.initSqlJs({ locateFile:f=>`https://sql.js.org/dist/${f}` }).then(SQL=>SQLJS=SQL);
 document.getElementById('buildDB').onclick = ()=> withOverlay("Création de la base", "Compilation avec sql.js…", async ()=>{
@@ -329,7 +395,7 @@ document.getElementById('dlDB').onclick=()=>{
   if(!DB_BLOB) return; const a=document.createElement('a'); a.href=URL.createObjectURL(DB_BLOB); a.download="database.db"; a.click();
 };
 
-/* LLM (WebLLM local) */
+/* ========= LLM (WebLLM local) ========= */
 const SYSTEM = `Tu es un architecte de données pédagogue.
 Produis d'abord un schéma pensé pour des décideurs non techniques (clarté métier, normalisation simple).
 Réponds STRICTEMENT en JSON valide, et rien d'autre, au format:
@@ -357,36 +423,32 @@ async function initWebLLM(){
   if(webllmReady) return;
   loaderEl.style.display='block';
   loaderMsg.textContent = "Préparation du modèle (WebGPU)…";
-  loaderBar.style.width = "5%";
+  loaderBar.style.width = "4%";
+  stripe.style.display = 'block'; // start indeterminate until we get real progress
 
-  const initProgressCallback = (p)=>{
-    if (typeof p.progress === "number") {
-      loaderBar.style.width = `${Math.round(p.progress*100)}%`;
-    } else {
-      loaderBar.style.width = (parseInt(loaderBar.style.width)||10) + "%";
-    }
-    if (p.text) loaderMsg.textContent = p.text;
-  };
+  const initProgressCallback = (p)=> updateProgress(p);
 
-  // Modèle compact conseillé pour le web (nom du bundle MLC)
-  const model = "Phi-3-mini-4k-instruct-q4f32_1-MLC";
+  const model = "Phi-3-mini-4k-instruct-q4f32_1-MLC"; // compact pour navigateur
   webllmApp = await webllm.createWebWorkerMLCEngine(
     new URL("https://unpkg.com/@mlc-ai/web-llm/dist/worker.js", import.meta.url),
     { model, initProgressCallback }
   );
   webllmReady=true;
-  loaderBar.style.width = "100%";
-  loaderMsg.textContent = "Modèle prêt ✅";
-  setTimeout(()=> loaderEl.style.display='none', 600);
+  updateProgress({progress:1, text:"Modèle prêt ✅"});
+  setTimeout(()=> loaderEl.style.display='none', 700);
 }
+
 async function webllmChat(userText){
   await initWebLLM();
   const prompt = `${SYSTEM}\nUtilisateur: ${userText}\nRéponds en JSON valide uniquement.`;
-  const out = await webllmApp.chat.completions.create({ messages:[{role:"user",content:prompt}], temperature:0.1, stream:false });
+  const out = await webllmApp.chat.completions.create({
+    messages:[{role:"user",content:prompt}],
+    temperature:0.1, stream:false
+  });
   return out.choices[0].message.content;
 }
 
-/* Chat UI */
+/* ========= Chat UI ========= */
 document.getElementById('clearChat').onclick=()=>chatlogEl.innerHTML="";
 document.getElementById('quickPrompts').addEventListener('click', (e)=>{
   const b = e.target.closest('button[data-prompt]');
@@ -400,21 +462,21 @@ document.getElementById('askBtn').onclick = async ()=>{
   addMsg("Vous", brief);
   await withOverlay("Génération de proposition", "Le robot conçoit un schéma cohérent…", async ()=>{
     const raw = await webllmChat(brief);
-    let parsed; 
-    try { parsed = JSON.parse(raw); } 
+    let parsed;
+    try { parsed = JSON.parse(raw); }
     catch(e){ throw new Error("Réponse non-JSON:\n"+raw); }
-    schema = parsed; 
-    renderSchemaEditor(); 
+    schema = parsed;
+    renderSchemaEditor();
     renderRelations();
     addMsg("🤖", "✅ Proposition mise à jour. Consultez « ER » ou « SQL », puis « Générer & Télécharger ».");
     if(schema.rationale) addMsg("🤖 Logique", schema.rationale);
   });
 };
 
-/* Init de base */
+/* ========= Init ========= */
 renderSchemaEditor(); renderRelations();
 
-/* Pré-charger le modèle en douceur */
+/* Pré-charger le modèle en douceur (dès que la page est stable) */
 const idle = window.requestIdleCallback || ((fn)=>setTimeout(fn, 1200));
 idle(()=> { initWebLLM().catch(()=>{}); });
 </script>
