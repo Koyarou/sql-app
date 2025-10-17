@@ -3,473 +3,219 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>DB Designer — Local AI (WebLLM) · Chat → Schéma → SQL → .db</title>
+<title>DB Chat — Schéma SQL (Local)</title>
 
-<!-- Service worker pour COOP/COEP (isolation) -->
+<!-- Service Worker pour isolation (WebGPU). S'il manque, l'app reste utilisable en mode démo. -->
 <script src="coi-serviceworker.js"></script>
 
 <style>
-  :root{
-    --bg:#0b0b0b;--panel:#131313;--muted:#191919;--txt:#f7f7f7;--sub:#b7b7b7;--accent:#18a1ff;--bd:#242424;
-    --radius:14px;--shadow:0 10px 24px rgba(0,0,0,.35)
-  }
-  html[data-theme="light"]{
-    --bg:#f8fafc;--panel:#ffffff;--muted:#f2f4f7;--txt:#0b0b0f;--sub:#64748b;--accent:#0ea5e9;--bd:#e5e7eb;
-    --shadow:0 10px 24px rgba(2,6,23,.08)
-  }
+  :root{--bg:#0b0b0b;--panel:#131313;--muted:#191919;--txt:#f7f7f7;--sub:#b7b7b7;--accent:#18a1ff;--bd:#242424;--r:12px}
+  html[data-theme="light"]{--bg:#f8fafc;--panel:#ffffff;--muted:#f2f4f7;--txt:#0b0b0f;--sub:#64748b;--accent:#0ea5e9;--bd:#e5e7eb}
 
   html,body{height:100%}
   body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Arial,sans-serif}
-  .wrap{max-width:1100px;margin:0 auto;padding:16px;display:grid;grid-template-columns:1fr;gap:12px}
-  @media (min-width: 980px){ .wrap{grid-template-columns:360px 1fr} }
-  .card{background:var(--panel);border:1px solid var(--bd);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}
-  h1{font-size:18px;margin:0 0 6px}
-  .sub{color:var(--sub);font-size:13px}
-  input,textarea,select,button{border:1px solid var(--bd);background:transparent;color:var(--txt);border-radius:10px}
-  textarea{min-height:110px;resize:vertical;padding:10px}
-  button{padding:10px 14px;cursor:pointer}
-  .primary{background:var(--accent);border-color:var(--accent);color:white}
-  .ghost{background:transparent}
+  .wrap{max-width:800px;margin:0 auto;padding:16px;display:grid;gap:12px}
+  .card{background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);padding:14px}
   .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .stack{display:flex;flex-direction:column;gap:8px}
-  .chatlog{height:260px;overflow:auto;border:1px solid var(--bd);border-radius:12px;padding:10px;background:color-mix(in oklab, var(--panel), black 6%)}
-  .msg{margin:0 0 10px}
-  .msg .who{font-size:12px;color:var(--sub);margin-bottom:2px}
-  .msg .bubble{background:color-mix(in oklab, var(--panel), black 8%);border:1px solid var(--bd);padding:8px;border-radius:10px}
-  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
-  .tab{padding:8px 10px;border:1px solid var(--bd);border-radius:10px;background:transparent;cursor:pointer;font-size:13px}
-  .tab.active{background:var(--accent);border-color:var(--accent);color:white}
-  .panel{display:none}.panel.active{display:block}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  th,td{border-bottom:1px solid var(--bd);padding:6px;text-align:left}
-  td input, td select{width:100%}
-  pre{white-space:pre-wrap;word-wrap:break-word;background:color-mix(in oklab, var(--panel), black 8%);border:1px solid var(--bd);padding:12px;border-radius:12px;max-height:360px;overflow:auto}
-  .note{font-size:12px;color:var(--sub)}
-  .topbar{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;gap:8px;padding:10px 16px}
+  .stack{display:flex;flex-direction:column;gap:10px}
+  h1{margin:0 0 6px;font-size:18px}
+  .sub{font-size:13px;color:var(--sub)}
+  textarea{width:100%;min-height:110px;border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--txt);padding:10px}
+  button{border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--txt);padding:10px 14px;cursor:pointer}
+  .primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .chatlog{height:300px;overflow:auto;border:1px solid var(--bd);border-radius:12px;padding:10px;background:color-mix(in oklab, var(--panel), black 6%)}
+  .msg{margin:0 0 10px}.who{font-size:12px;color:var(--sub);margin-bottom:2px}
+  .bubble{background:color-mix(in oklab, var(--panel), black 8%);border:1px solid var(--bd);padding:8px;border-radius:10px}
+  .topbar{display:flex;justify-content:space-between;align-items:center}
 
-  /* Overlay & loader */
-  #overlay{display:none;position:fixed;inset:0;backdrop-filter:blur(2px);background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center}
-  .spinner{width:22px;height:22px;border:3px solid color-mix(in oklab, var(--panel), black 18%);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-
-  #modelLoader{display:none;position:fixed;bottom:16px;left:16px;right:16px;max-width:560px;margin:0 auto;background:var(--panel);border:1px solid var(--bd);border-radius:12px;z-index:9998;box-shadow:var(--shadow)}
-  #barWrap{margin-top:8px;height:10px;background:color-mix(in oklab, var(--panel), black 12%);border-radius:8px;overflow:hidden;position:relative}
-  #modelBar{height:100%;width:0%;background:var(--accent);transition:width .2s ease}
+  /* Barre d’état en bas */
+  #loader{display:none;position:fixed;left:16px;right:16px;bottom:16px;max-width:560px;margin:0 auto;background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:12px;z-index:999}
+  #barWrap{height:10px;background:color-mix(in oklab, var(--panel), black 12%);border-radius:7px;overflow:hidden;position:relative}
+  #bar{height:10px;background:var(--accent);width:0%;transition:width .2s}
   #stripe{display:none;position:absolute;inset:0;background:repeating-linear-gradient(45deg, rgba(255,255,255,.15) 0 10px, rgba(0,0,0,.12) 10px 20px);animation:move 1.2s linear infinite}
   @keyframes move{from{background-position:0 0}to{background-position:40px 0}}
-
-  /* Debug banner */
-  #debug{position:fixed;right:12px;top:54px;font-size:12px;padding:6px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--panel);opacity:.9;z-index:9997}
 </style>
 
-<!-- libs -->
-<script src="https://sql.js.org/dist/sql-wasm.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-<script>mermaid.initialize({ startOnLoad:false, theme:"dark" });</script>
-<script src="https://unpkg.com/@mlc-ai/web-llm/dist/index.js"></script>
+<!-- WebLLM (optionnel ; si indispo, on passe en démo) -->
+<script src="https://unpkg.com/@mlc-ai/web-llm/dist/index.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  /* ===== Thème (indépendant de l'IA) ===== */
+  const root = document.documentElement;
+  const saved = localStorage.getItem('theme'); if (saved) root.setAttribute('data-theme', saved);
+  document.getElementById('theme').onclick = () => {
+    const cur = root.getAttribute('data-theme') || 'dark';
+    const next = cur === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+  };
+
+  /* ===== UI ===== */
+  const quick = document.getElementById('quick');
+  const briefEl = document.getElementById('brief');
+  const logEl = document.getElementById('log');
+  const goBtn = document.getElementById('go');
+  const clearBtn = document.getElementById('clear');
+  function msg(who, html){ const d=document.createElement('div'); d.className='msg'; d.innerHTML=`<div class="who">${who}</div><div class="bubble">${html}</div>`; logEl.appendChild(d); logEl.scrollTop=logEl.scrollHeight; }
+  quick.addEventListener('click',(e)=>{ const b=e.target.closest('button[data-prompt]'); if(!b) return; briefEl.value=b.getAttribute('data-prompt'); });
+  clearBtn.onclick=()=> (logEl.innerHTML='');
+
+  /* ===== Barre d’état ===== */
+  const loader = document.getElementById('loader');
+  const lmsg = document.getElementById('lmsg');
+  const bar = document.getElementById('bar');
+  const stripe = document.getElementById('stripe');
+  document.getElementById('lclose').onclick=()=> loader.style.display='none';
+  let manual = 6;
+  function progress(p){
+    loader.style.display='block';
+    if (p && typeof p.progress === 'number'){
+      bar.style.width = Math.max(1, Math.min(100, Math.round(p.progress*100))) + '%';
+      stripe.style.display='none';
+    } else if (p && p.text && /(\d{1,3})\s?%/.test(p.text)){
+      bar.style.width = Math.min(100, parseInt(RegExp.$1,10)) + '%';
+      stripe.style.display='none';
+    } else {
+      stripe.style.display='block';
+      manual = Math.min(97, manual+1);
+      bar.style.width = manual + '%';
+    }
+    if (p && p.text) lmsg.textContent = p.text;
+  }
+
+  /* ===== IA locale (avec fallback démo) ===== */
+  const SYSTEM = `Tu es un architecte de données pédagogue.
+Réponds STRICTEMENT en JSON:
+{"rationale":"...","tables":[{"name":"...","fields":[{"name":"id","type":"INTEGER","pk":true,"unique":true,"notnull":true,"default":null}]}],"relations":[{"type":"1-1","from":"A","to":"B"},{"type":"1-N","from":"A","to":"B"},{"type":"N-N","from":"A","to":"B"}]}`;
+
+  let engine = null, engineReady = false, initTried = false;
+  async function initLLM(){
+    if (initTried) return; initTried = true;
+    try{
+      progress({text:"Préparation du modèle (local)..."});
+      const initProgressCallback = (p)=> progress(p);
+      const model = "Phi-3-mini-4k-instruct-q4f32_1-MLC";
+      if (window.webllm && 'createMLCEngine' in window.webllm) {
+        // Fallback: main thread (évite import.meta / workers)
+        engine = await window.webllm.createMLCEngine({ model, initProgressCallback });
+        engineReady = true; progress({progress:1,text:"Modèle prêt ✅"}); setTimeout(()=> loader.style.display='none', 800);
+      } else {
+        progress({text:"WebLLM indisponible — mode démo."});
+      }
+    }catch(e){
+      console.warn(e); progress({text:"Échec IA locale — mode démo."});
+    }
+  }
+  // Pré-chargement doux
+  (window.requestIdleCallback || ((fn)=>setTimeout(fn,800)))(()=> initLLM());
+
+  async function llmJSON(brief){
+    await initLLM();
+    if (engineReady){
+      const out = await engine.chat.completions.create({
+        messages:[{role:"user",content:`${SYSTEM}\nUtilisateur: ${brief}\nRéponds en JSON valide uniquement.`}],
+        temperature:0.1, stream:false
+      });
+      return out.choices?.[0]?.message?.content || "";
+    } else {
+      return demoGenerate(brief);
+    }
+  }
+
+  // Démo si IA HS (toujours renvoie un JSON propre)
+  function demoGenerate(brief){
+    const b = (brief||"").toLowerCase();
+    const make = (tables, relations, rationale) => JSON.stringify({rationale,tables,relations},null,2);
+    if (b.includes("rh")) {
+      return make(
+        [
+          {name:"employees",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"first_name",type:"TEXT"},{name:"last_name",type:"TEXT"},{name:"email",type:"TEXT",unique:true},{name:"department_id",type:"INTEGER"}]},
+          {name:"departments",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"name",type:"TEXT",unique:true}]},
+          {name:"contracts",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"employee_id",type:"INTEGER"},{name:"type",type:"TEXT"},{name:"start_date",type:"DATE"},{name:"end_date",type:"DATE"}]}
+        ],
+        [{type:"1-N",from:"departments",to:"employees"},{type:"1-N",from:"employees",to:"contracts"}],
+        "Chaque salarié appartient à un service ; les contrats sont historisés par salarié. Emails uniques."
+      );
+    }
+    if (b.includes("commerce")) {
+      return make(
+        [
+          {name:"customers",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"email",type:"TEXT",unique:true},{name:"name",type:"TEXT"}]},
+          {name:"products",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"name",type:"TEXT"},{name:"price",type:"REAL"}]},
+          {name:"orders",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"customer_id",type:"INTEGER"},{name:"order_date",type:"DATE"}]},
+          {name:"order_items",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"order_id",type:"INTEGER"},{name:"product_id",type:"INTEGER"},{name:"qty",type:"INTEGER"}]}
+        ],
+        [{type:"1-N",from:"customers",to:"orders"},{type:"1-N",from:"orders",to:"order_items"},{type:"1-N",from:"products",to:"order_items"}],
+        "Séparation clients/produits/commandes. Les lignes détaillent les quantités ; relations 1-N standard."
+      );
+    }
+    // CRM par défaut
+    return make(
+      [
+        {name:"companies",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"name",type:"TEXT",unique:true}]},
+        {name:"contacts",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"company_id",type:"INTEGER"},{name:"email",type:"TEXT",unique:true},{name:"full_name",type:"TEXT"}]},
+        {name:"deals",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"company_id",type:"INTEGER"},{name:"stage",type:"TEXT"},{name:"amount",type:"REAL"}]}
+      ],
+      [{type:"1-N",from:"companies",to:"contacts"},{type:"1-N",from:"companies",to:"deals"}],
+      "CRM minimal : entreprises, contacts, opportunités (stades). Unicité sur email et nom d’entreprise."
+    );
+  }
+
+  /* ===== Chat flow ===== */
+  goBtn.onclick = async ()=>{
+    const brief = briefEl.value.trim();
+    if (!brief) return alert("Écris ton besoin.");
+    msg("Vous", brief);
+    msg("🤖", "Je prépare une proposition…");
+    try{
+      const raw = await llmJSON(brief);
+      let parsed; try{ parsed = JSON.parse(raw); }catch(e){ throw new Error("Réponse non-JSON:\n"+raw); }
+      msg("🤖", "<b>Proposition (JSON)</b> :<br><pre style='margin:6px 0 0'>"+JSON.stringify(parsed,null,2)+"</pre>");
+      // Le panneau d’édition sera ajouté plus tard (sur une autre page/étape)
+    }catch(err){
+      msg("❌", "Impossible de générer la proposition : " + (err.message||err));
+    }
+  };
+});
+</script>
 </head>
 <body>
-
-<div class="topbar">
-  <div id="debug">GPU: <span id="dbg-gpu"></span> · XOI: <span id="dbg-xoi"></span> · Engine: <span id="dbg-eng">–</span></div>
-  <button id="themeBtn" class="ghost">🌓 Thème</button>
-</div>
-
-<!-- Overlay -->
-<div id="overlay">
-  <div class="card" style="max-width:420px">
-    <div style="display:flex;gap:10px;align-items:center">
-      <div class="spinner"></div>
-      <div>
-        <div id="overlayTitle" style="font-weight:600">Traitement…</div>
-        <div id="overlaySub" class="note">Veuillez patienter</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Loader barre (modèle) -->
-<div id="modelLoader" class="card" aria-live="polite">
-  <div style="display:flex;justify-content:space-between;align-items:center">
-    <div style="font-weight:600">Chargement du modèle IA (local)</div>
-    <button id="closeLoader" class="ghost" style="padding:6px 10px">Masquer</button>
-  </div>
-  <div id="modelMsg" class="note" style="margin-top:6px">Initialisation…</div>
-  <div id="barWrap"><div id="modelBar"></div><div id="stripe"></div></div>
-</div>
-
 <div class="wrap">
-  <!-- LEFT -->
+  <div class="topbar">
+    <div><strong>DB Chat</strong> — crée un schéma SQL à partir d’un brief</div>
+    <button id="theme" title="Clair/Sombre">🌓 Thème</button>
+  </div>
+
   <section class="card stack">
-    <h1>Assistant base de données</h1>
-    <div class="sub">Décrivez votre besoin métier. L’assistant conçoit un schéma clair (tables, relations) et l’explique.
-      <br><b>100% local</b> dans votre navigateur (pas de compte, pas de clé).
+    <div>
+      <h1>Assistant base de données</h1>
+      <div class="sub">Décrivez votre besoin métier. L’assistant conçoit un schéma clair et l’explique. <b>100% local</b> (pas de compte).</div>
     </div>
 
-    <div class="stack">
-      <div class="row" id="quickPrompts">
-        <button class="ghost" data-prompt="CRM simple : entreprises, contacts, opportunités (stades), activités (appels, mails).">CRM</button>
-        <button class="ghost" data-prompt="E-commerce : clients, produits, catégories, commandes, lignes de commande, paiements.">E-commerce</button>
-        <button class="ghost" data-prompt="Médiathèque : lecteurs, ouvrages, emprunts, retours, pénalités.">Médiathèque</button>
-        <button class="ghost" data-prompt="RH : collaborateurs, contrats, services, absences, évaluations, formations.">RH</button>
-      </div>
-      <div class="note">Astuce : cliquez sur un exemple pour démarrer, puis ajustez en langage naturel.</div>
+    <div class="row" id="quick">
+      <button data-prompt="CRM : entreprises, contacts, opportunités (stades), activités (appels, mails).">CRM</button>
+      <button data-prompt="E-commerce : clients, produits, catégories, commandes, lignes, paiements.">E-commerce</button>
+      <button data-prompt="Médiathèque : lecteurs, ouvrages, emprunts, retours, pénalités.">Médiathèque</button>
+      <button data-prompt="RH : collaborateurs, contrats, services, absences, évaluations, formations.">RH</button>
     </div>
 
-    <textarea id="userPrompt" placeholder="Ex : « Construis une base RH claire pour un service de 120 salariés (collaborateurs, contrats, services, absences, évaluations). »"></textarea>
+    <textarea id="brief" placeholder="Ex : « Construis une base RH pour 120 salariés (collaborateurs, contrats, services, absences, évaluations). »"></textarea>
     <div class="row">
-      <button class="primary" id="askBtn">Proposer un schéma</button>
-      <button class="ghost" id="clearChat">Effacer</button>
+      <button class="primary" id="go">Proposer un schéma</button>
+      <button id="clear">Effacer</button>
     </div>
 
-    <div class="chatlog" id="chatlog" aria-live="polite"></div>
-    <div class="note">Après la proposition, vous pouvez demander : « ajoute un champ email unique », « passe la relation projets-collaborateurs en N-N », etc.</div>
-  </section>
-
-  <!-- RIGHT -->
-  <section class="card">
-    <div class="tabs" id="tabs">
-      <div class="tab active" data-tab="schema">Schéma éditable</div>
-      <div class="tab" data-tab="erd">ER diagram</div>
-      <div class="tab" data-tab="sql">SQL (DDL)</div>
-      <div class="tab" data-tab="build">Générer & Télécharger</div>
-    </div>
-
-    <div class="panel active" id="panel-schema">
-      <div class="sub">Tables & champs (éditez librement). Ajoutez des relations en bas.</div>
-      <div id="schemaEditor"></div>
-      <h3 style="margin:8px 0">Relations</h3>
-      <table id="relsTable"><thead><tr><th>Type</th><th>From</th><th>To</th><th></th></tr></thead><tbody></tbody></table>
-      <div class="row">
-        <select id="relType"><option>1-1</option><option>1-N</option><option>N-N</option></select>
-        <input id="relFrom" placeholder="ex: customers"/>
-        <input id="relTo" placeholder="ex: orders"/>
-        <button class="ghost" id="addRel">Ajouter</button>
-      </div>
-    </div>
-
-    <div class="panel" id="panel-erd">
-      <div class="sub">Aperçu Mermaid (diagramme entité-relation)</div>
-      <pre id="erdCode"></pre>
-      <div id="erdRender" style="margin-top:8px"></div>
-      <button class="ghost" id="refreshERD">Rafraîchir</button>
-    </div>
-
-    <div class="panel" id="panel-sql">
-      <div class="sub">Prévisualisation du DDL généré</div>
-      <pre id="sqlOut">-- Génère via l’onglet “Générer & Télécharger”</pre>
-    </div>
-
-    <div class="panel" id="panel-build">
-      <div class="sub">Tout se fait localement (privacy). Exports prêts pour vos équipes techniques.</div>
-      <div class="row" style="margin-top:8px">
-        <button class="primary" id="genSQL">Générer le SQL</button>
-        <button class="primary" id="buildDB">Créer le .db</button>
-        <button id="dlSQL" disabled>Télécharger .sql</button>
-        <button id="dlDB" disabled>Télécharger .db</button>
-      </div>
-    </div>
+    <div class="chatlog" id="log" aria-live="polite"></div>
   </section>
 </div>
 
-<script>
-/* THEME */
-const themeBtn = document.getElementById('themeBtn');
-const savedTheme = localStorage.getItem('theme');
-if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
-themeBtn.onclick = () => {
-  const cur = document.documentElement.getAttribute('data-theme') || 'dark';
-  const next = cur === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('theme', next);
-  mermaid.initialize({ startOnLoad:false, theme: next === 'dark' ? 'dark' : 'default' });
-};
-
-/* DEBUG BANNER */
-document.getElementById('dbg-gpu').textContent = ('gpu' in navigator) ? '✅' : '❌';
-document.getElementById('dbg-xoi').textContent = (window.crossOriginIsolated ? '✅' : '❌');
-
-/* STATE & UTILS */
-let schema = { tables: [], relations: [], rationale: "" };
-const chatlogEl = document.getElementById('chatlog');
-function addMsg(who, html){
-  const d=document.createElement('div'); d.className="msg";
-  d.innerHTML=`<div class="who">${who}</div><div class="bubble">${html}</div>`;
-  chatlogEl.appendChild(d); chatlogEl.scrollTop=chatlogEl.scrollHeight;
-}
-function showOverlay(titre, sousTitre){
-  const o=document.getElementById('overlay'); o.style.display='flex';
-  document.getElementById('overlayTitle').textContent=titre||'Traitement…';
-  document.getElementById('overlaySub').textContent=sousTitre||'Veuillez patienter';
-}
-function hideOverlay(){ document.getElementById('overlay').style.display='none'; }
-async function withOverlay(t,s,fn){ showOverlay(t,s); try{return await fn();} finally{ hideOverlay(); } }
-
-/* LOADER */
-const loaderEl = document.getElementById('modelLoader');
-const loaderMsg = document.getElementById('modelMsg');
-const loaderBar = document.getElementById('modelBar');
-const stripe = document.getElementById('stripe');
-document.getElementById('closeLoader').onclick=()=> loaderEl.style.display='none';
-let lastManual = 8;
-function updateProgress(p){
-  loaderEl.style.display='block';
-  if (p && typeof p.progress === 'number'){
-    const pct = Math.max(1, Math.min(100, Math.round(p.progress*100)));
-    loaderBar.style.width = pct + '%';
-    stripe.style.display = 'none';
-  } else if (p && p.text && /(\d{1,3})\s?%/.test(p.text)) {
-    loaderBar.style.width = Math.min(100, parseInt(RegExp.$1,10)) + '%';
-    stripe.style.display = 'none';
-  } else {
-    stripe.style.display='block';
-    lastManual = Math.min(97, lastManual + 1);
-    loaderBar.style.width = lastManual + '%';
-  }
-  if (p && p.text) loaderMsg.textContent = p.text;
-}
-
-/* TABS */
-const tabsEl = document.getElementById('tabs');
-const panels = {
-  schema: document.getElementById('panel-schema'),
-  erd: document.getElementById('panel-erd'),
-  sql: document.getElementById('panel-sql'),
-  build: document.getElementById('panel-build'),
-};
-tabsEl.addEventListener('click', e => {
-  const t = e.target.closest('.tab'); if(!t) return;
-  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-  t.classList.add('active');
-  const name = t.dataset.tab; Object.entries(panels).forEach(([k,el])=>el.classList.toggle('active',k===name));
-});
-
-/* EDITOR */
-const schemaEditorEl = document.getElementById('schemaEditor');
-const relsTableBody = document.querySelector('#relsTable tbody');
-function renderSchemaEditor(){
-  schemaEditorEl.innerHTML="";
-  (schema.tables||[]).forEach((t,ti)=>{
-    const card = document.createElement('div'); card.className="card"; card.style.background="var(--muted)";
-    const head = document.createElement('div'); head.className="row";
-    head.innerHTML = `<h3 style="margin:0">${t.name}</h3>
-      <button class="ghost" data-add>+ champ</button>
-      <button class="ghost" data-del style="margin-left:auto;color:#e11d48">Suppr table</button>`;
-    head.querySelector('[data-add]').onclick=()=>{t.fields.push({name:"new_field",type:"TEXT",pk:false,unique:false,notnull:false,default:null}); renderSchemaEditor();};
-    head.querySelector('[data-del]').onclick=()=>{schema.tables.splice(ti,1); renderSchemaEditor(); renderRelations();};
-    card.appendChild(head);
-
-    const tbl=document.createElement('table');
-    tbl.innerHTML = `<thead><tr><th>Nom</th><th>Type</th><th>PK</th><th>Unique</th><th>Not null</th><th>Default</th><th></th></tr></thead>`;
-    const tb=document.createElement('tbody');
-    (t.fields||[]).forEach((f,fi)=>{
-      const tr=document.createElement('tr');
-      tr.innerHTML = `
-        <td><input value="${f.name}"/></td>
-        <td><select>${["INTEGER","TEXT","REAL","BOOLEAN","DATE","DATETIME"].map(tp=>`<option ${tp===f.type?"selected":""}>${tp}</option>`).join("")}</select></td>
-        <td><input type="checkbox" ${f.pk?"checked":""}></td>
-        <td><input type="checkbox" ${f.unique?"checked":""}></td>
-        <td><input type="checkbox" ${f.notnull?"checked":""}></td>
-        <td><input value="${f.default??""}" placeholder="null"/></td>
-        <td><button class="ghost" data-del>Suppr</button></td>`;
-      const [nameEl,typeEl,pkEl,unEl,nnEl,defEl] = tr.querySelectorAll('input,select');
-      nameEl.oninput=e=>f.name=e.target.value; typeEl.onchange=e=>f.type=e.target.value;
-      pkEl.onchange=e=>f.pk=e.target.checked; unEl.onchange=e=>f.unique=e.target.checked;
-      nnEl.onchange=e=>f.notnull=e.target.checked; defEl.oninput=e=>f.default=e.target.value||null;
-      tr.querySelector('[data-del]').onclick=()=>{t.fields.splice(fi,1); renderSchemaEditor();};
-      tb.appendChild(tr);
-    });
-    tbl.appendChild(tb); card.appendChild(tbl); schemaEditorEl.appendChild(card);
-  });
-  const add=document.createElement('div'); add.className="row"; add.style.marginTop="8px";
-  add.innerHTML=`<input id="newTableName" placeholder="nom_de_table"/><button class="ghost" id="addTableBtn">+ table</button>`;
-  schemaEditorEl.appendChild(add);
-  add.querySelector('#addTableBtn').onclick=()=>{
-    const nm=add.querySelector('#newTableName').value.trim(); if(!nm) return;
-    schema.tables.push({ name:nm, fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null}] });
-    renderSchemaEditor();
-  };
-}
-function renderRelations(){
-  relsTableBody.innerHTML=""; (schema.relations||[]).forEach((r,i)=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${r.type}</td><td>${r.from}</td><td>${r.to}</td><td><button class="ghost" data-del>Suppr</button></td>`;
-    tr.querySelector('[data-del]').onclick=()=>{schema.relations.splice(i,1); renderRelations();};
-    relsTableBody.appendChild(tr);
-  });
-}
-document.getElementById('addRel').onclick=()=>{
-  const type=document.getElementById('relType').value, from=document.getElementById('relFrom').value.trim(), to=document.getElementById('relTo').value.trim();
-  if(!from||!to) return; schema.relations=schema.relations||[]; schema.relations.push({type,from,to}); renderRelations();
-};
-
-/* ERD + SQL */
-const erdCodeEl=document.getElementById('erdCode'), erdRenderEl=document.getElementById('erdRender');
-function mermaidFromSchema(s){
-  let out="erDiagram\n";
-  (s.tables||[]).forEach(t=>{ out+=`  ${t.name} {\n`; (t.fields||[]).forEach(f=>{ out+=`    ${f.type} ${f.name}${f.pk?" PK":""}\n`; }); out+="  }\n"; });
-  (s.relations||[]).forEach(r=>{
-    if(r.type==="1-1") out+=`  ${r.from} ||--|| ${r.to} : has\n`;
-    if(r.type==="1-N") out+=`  ${r.from} ||--o{ ${r.to} : has\n`;
-    if(r.type==="N-N") out+=`  ${r.from} }o--o{ ${r.to} : many\n`;
-  });
-  return out;
-}
-async function renderERD(){
-  const code=mermaidFromSchema(schema); erdCodeEl.textContent=code;
-  try{ const {svg}=await mermaid.render('erd_'+Date.now(),code); erdRenderEl.innerHTML=svg; }catch(e){ erdRenderEl.innerHTML=`<div class="note">Erreur Mermaid : ${String(e)}</div>`; }
-}
-document.getElementById('refreshERD').onclick = ()=> withOverlay("Rendu du diagramme ER", "Génération Mermaid…", renderERD);
-
-const sqlOutEl=document.getElementById('sqlOut');
-function esc(x){return x.replace(/[^a-zA-Z0-9_]/g,"_");}
-function ddlFromSchema(s){
-  const map=Object.fromEntries((s.tables||[]).map(t=>[t.name,t]));
-  const extra={};
-  (s.relations||[]).forEach(r=>{
-    const A=r.from,B=r.to; if(!map[A]||!map[B]) return;
-    if(r.type==="1-1"){ extra[B]=extra[B]||[]; extra[B].push({field:`${A}_id`,ref:A,unique:true}); }
-    if(r.type==="1-N"){ extra[B]=extra[B]||[]; extra[B].push({field:`${A}_id`,ref:A,unique:false}); }
-    if(r.type==="N-N"){
-      const jt=`${A}_${B}`; if(!map[jt]){ s.tables.push({name:jt,fields:[{name:`${A}_id`,type:"INTEGER",pk:false,unique:false,notnull:true,default:null},{name:`${B}_id`,type:"INTEGER",pk:false,unique:false,notnull:true,default:null}]}); map[jt]=s.tables[s.tables.length-1]; extra[jt]=[{field:`${A}_id`,ref:A,unique:false},{field:`${B}_id`,ref:B,unique:false}]; }
-    }
-  });
-  let sql="PRAGMA foreign_keys = ON;\n\n";
-  (s.tables||[]).forEach(t=>{
-    const defs=[]; const uniq=[];
-    (t.fields||[]).forEach(f=>{
-      const parts=[esc(f.name), f.type||"TEXT"]; if(f.pk) parts.push("PRIMARY KEY"); if(f.notnull) parts.push("NOT NULL"); if(f.unique) uniq.push(esc(f.name)); if(f.default!=null && String(f.default).length) parts.push("DEFAULT "+String(f.default)); defs.push(parts.join(" "));
-    });
-    (extra[t.name]||[]).forEach(fk=>{
-      if(!(t.fields||[]).some(x=>x.name===fk.field)) defs.push(`${esc(fk.field)} INTEGER`);
-      defs.push(`FOREIGN KEY (${esc(fk.field)}) REFERENCES ${esc(fk.ref)}(id) ON DELETE CASCADE`);
-      if(fk.unique) uniq.push(esc(fk.field));
-    });
-    uniq.forEach(u=>defs.push(`UNIQUE (${u})`));
-    sql+=`CREATE TABLE IF NOT EXISTS ${esc(t.name)} (\n  ${defs.join(",\n  ")}\n);\n\n`;
-  });
-  return sql;
-}
-document.getElementById('genSQL').onclick = ()=> withOverlay("Génération SQL", "Création du DDL…", async ()=>{
-  sqlOutEl.textContent = ddlFromSchema(structuredClone(schema));
-  document.getElementById('dlSQL').disabled = false;
-});
-
-/* BUILD .DB */
-let SQLJS=null, DB_BLOB=null;
-window.initSqlJs({ locateFile:f=>`https://sql.js.org/dist/${f}` }).then(SQL=>SQLJS=SQL);
-document.getElementById('buildDB').onclick = ()=> withOverlay("Création de la base", "Compilation avec sql.js…", async ()=>{
-  if(!SQLJS) throw new Error("sql.js pas prêt, réessaie.");
-  const sql = ddlFromSchema(structuredClone(schema));
-  sqlOutEl.textContent = sql;
-  const db = new SQLJS.Database(); db.run(sql);
-  const arr = db.export(); DB_BLOB = new Blob([arr],{type:"application/octet-stream"});
-  document.getElementById('dlDB').disabled = false;
-  document.getElementById('dlSQL').disabled = false;
-});
-document.getElementById('dlSQL').onclick=()=>{
-  const blob=new Blob([sqlOutEl.textContent||"-- vide --"],{type:"text/sql"}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download="schema.sql"; a.click();
-};
-document.getElementById('dlDB').onclick=()=>{
-  if(!DB_BLOB) return; const a=document.createElement('a'); a.href=URL.createObjectURL(DB_BLOB); a.download="database.db"; a.click();
-};
-
-/* LLM (WebLLM) — persona + Fallback Worker → Main Thread */
-const SYSTEM = `Tu es un architecte de données pédagogue.
-Produis d'abord un schéma pensé pour des décideurs non techniques (clarté métier, normalisation simple).
-Réponds STRICTEMENT en JSON valide, et rien d'autre, au format:
-{
- "rationale":"(2-3 phrases en français, vocabulaire métier, pourquoi ce découpage, la logique des relations)",
- "tables":[
-   {"name":"...", "fields":[
-     {"name":"id","type":"INTEGER","pk":true,"unique":true,"notnull":true,"default":null},
-     {"name":"...","type":"TEXT|INTEGER|REAL|BOOLEAN|DATE|DATETIME","pk":false,"unique":false,"notnull":false,"default":null}
-   ]}
- ],
- "relations":[
-   {"type":"1-1","from":"tableA","to":"tableB"},
-   {"type":"1-N","from":"tableA","to":"tableB"},
-   {"type":"N-N","from":"tableA","to":"tableB"}
- ]
-}
-Rappels:
-- Chaque table a une clé primaire.
-- 1-1: contrainte unique côté 'to'; 1-N: clé étrangère côté N; N-N: table de jointure.
-- Types génériques compatibles SQLite.`;
-
-let webllmApp=null, webllmReady=false, engineType='–';
-document.getElementById('dbg-eng').textContent = engineType;
-
-async function initWebLLM(){
-  if(webllmReady) return;
-  updateProgress({ text:"Préparation du modèle (WebGPU)…" });
-
-  const initProgressCallback = (p)=> updateProgress(p);
-  const model = "Phi-3-mini-4k-instruct-q4f32_1-MLC";
-
-  try {
-    // 1) Essai avec Worker (performant)
-    webllmApp = await webllm.createWebWorkerMLCEngine(
-      new URL("https://unpkg.com/@mlc-ai/web-llm/dist/worker.js", import.meta.url),
-      { model, initProgressCallback }
-    );
-    engineType = 'worker';
-    webllmReady = true;
-  } catch (e1) {
-    console.warn("Worker engine failed, fallback to main thread:", e1);
-    updateProgress({ text:"Fallback : moteur principal…" });
-    try {
-      // 2) Fallback sans worker (plus compatible sur Pages)
-      webllmApp = await webllm.createMLCEngine({ model, initProgressCallback });
-      engineType = 'main';
-      webllmReady = true;
-    } catch (e2) {
-      console.error("Main thread engine failed:", e2);
-      updateProgress({ text:"Échec du chargement du modèle." });
-      addMsg("❌", "Impossible de démarrer l’IA locale. Essayez Chrome/Edge sur ordinateur et rechargez la page.");
-      throw e2;
-    }
-  }
-
-  document.getElementById('dbg-eng').textContent = engineType;
-  updateProgress({ progress:1, text:"Modèle prêt ✅" });
-  setTimeout(()=> loaderEl.style.display='none', 700);
-}
-
-async function webllmChat(userText){
-  await initWebLLM();
-  const prompt = `${SYSTEM}\nUtilisateur: ${userText}\nRéponds en JSON valide uniquement.`;
-  const out = await webllmApp.chat.completions.create({
-    messages:[{role:"user",content:prompt}],
-    temperature:0.1, stream:false
-  });
-  return out.choices[0].message.content;
-}
-
-/* CHAT */
-document.getElementById('clearChat').onclick=()=>chatlogEl.innerHTML="";
-document.getElementById('quickPrompts').addEventListener('click', (e)=>{
-  const b = e.target.closest('button[data-prompt]'); if(!b) return;
-  document.getElementById('userPrompt').value = b.getAttribute('data-prompt');
-});
-document.getElementById('askBtn').onclick = async ()=>{
-  const brief = document.getElementById('userPrompt').value.trim();
-  if(!brief) return alert("Écris un brief.");
-  addMsg("Vous", brief);
-  await withOverlay("Génération de proposition", "Le robot conçoit un schéma cohérent…", async ()=>{
-    const raw = await webllmChat(brief);
-    let parsed; try { parsed = JSON.parse(raw); } catch(e){ throw new Error("Réponse non-JSON:\n"+raw); }
-    schema = parsed; renderSchemaEditor(); renderRelations();
-    addMsg("🤖", "✅ Proposition mise à jour. Consultez « ER » ou « SQL », puis « Générer & Télécharger ».");
-    if(schema.rationale) addMsg("🤖 Logique", schema.rationale);
-  });
-};
-
-/* INIT */
-renderSchemaEditor(); renderRelations();
-/* pré-chargement doux */
-const idle = window.requestIdleCallback || ((fn)=>setTimeout(fn, 1200));
-idle(()=> { initWebLLM().catch(()=>{}); });
-</script>
+<!-- Barre d'état (modèle) -->
+<div id="loader" aria-live="polite">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+    <div id="lmsg" class="sub">Initialisation…</div>
+    <button id="lclose">Masquer</button>
+  </div>
+  <div id="barWrap"><div id="bar"></div><div id="stripe"></div></div>
+</div>
 </body>
 </html>
