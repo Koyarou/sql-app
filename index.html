@@ -3,219 +3,150 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>DB Chat — Schéma SQL (Local)</title>
-
-<!-- Service Worker pour isolation (WebGPU). S'il manque, l'app reste utilisable en mode démo. -->
-<script src="coi-serviceworker.js"></script>
+<title>DB Chat — Démo ludique SQL</title>
 
 <style>
   :root{--bg:#0b0b0b;--panel:#131313;--muted:#191919;--txt:#f7f7f7;--sub:#b7b7b7;--accent:#18a1ff;--bd:#242424;--r:12px}
   html[data-theme="light"]{--bg:#f8fafc;--panel:#ffffff;--muted:#f2f4f7;--txt:#0b0b0f;--sub:#64748b;--accent:#0ea5e9;--bd:#e5e7eb}
 
-  html,body{height:100%}
   body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Arial,sans-serif}
-  .wrap{max-width:800px;margin:0 auto;padding:16px;display:grid;gap:12px}
-  .card{background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);padding:14px}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .stack{display:flex;flex-direction:column;gap:10px}
-  h1{margin:0 0 6px;font-size:18px}
-  .sub{font-size:13px;color:var(--sub)}
-  textarea{width:100%;min-height:110px;border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--txt);padding:10px}
+  .wrap{max-width:900px;margin:0 auto;padding:16px;display:grid;gap:16px}
+  textarea{width:100%;min-height:90px;border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--txt);padding:10px}
   button{border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--txt);padding:10px 14px;cursor:pointer}
   .primary{background:var(--accent);border-color:var(--accent);color:#fff}
-  .chatlog{height:300px;overflow:auto;border:1px solid var(--bd);border-radius:12px;padding:10px;background:color-mix(in oklab, var(--panel), black 6%)}
-  .msg{margin:0 0 10px}.who{font-size:12px;color:var(--sub);margin-bottom:2px}
-  .bubble{background:color-mix(in oklab, var(--panel), black 8%);border:1px solid var(--bd);padding:8px;border-radius:10px}
-  .topbar{display:flex;justify-content:space-between;align-items:center}
+  h1{margin:0;font-size:22px}
+  .chatlog{min-height:120px;border:1px solid var(--bd);border-radius:12px;padding:10px;background:rgba(255,255,255,0.02);overflow:auto}
+  .msg{margin:0 0 10px}
+  .who{font-size:12px;color:var(--sub);margin-bottom:2px}
+  .bubble{background:rgba(255,255,255,0.03);border:1px solid var(--bd);padding:8px;border-radius:10px}
 
-  /* Barre d’état en bas */
-  #loader{display:none;position:fixed;left:16px;right:16px;bottom:16px;max-width:560px;margin:0 auto;background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:12px;z-index:999}
-  #barWrap{height:10px;background:color-mix(in oklab, var(--panel), black 12%);border-radius:7px;overflow:hidden;position:relative}
-  #bar{height:10px;background:var(--accent);width:0%;transition:width .2s}
-  #stripe{display:none;position:absolute;inset:0;background:repeating-linear-gradient(45deg, rgba(255,255,255,.15) 0 10px, rgba(0,0,0,.12) 10px 20px);animation:move 1.2s linear infinite}
-  @keyframes move{from{background-position:0 0}to{background-position:40px 0}}
+  /* Visualisation */
+  .schema {display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:20px}
+  .table-card {
+    border-radius:12px;
+    padding:12px 16px;
+    width:220px;
+    color:#fff;
+    box-shadow:0 3px 8px rgba(0,0,0,0.3);
+    animation:pop 0.3s ease;
+    transition:transform .2s;
+  }
+  .table-card:hover{transform:scale(1.05);}
+  @keyframes pop {from{transform:scale(0.9);opacity:0;} to{transform:scale(1);opacity:1;}}
+  .table-card h3{margin:0 0 8px;font-size:17px}
+  .table-card ul{margin:0;padding-left:16px;list-style:none}
+  .table-card li{font-size:13px;margin:3px 0}
+  .download {margin-top:20px;text-align:center}
 </style>
 
-<!-- WebLLM (optionnel ; si indispo, on passe en démo) -->
-<script src="https://unpkg.com/@mlc-ai/web-llm/dist/index.js" defer></script>
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-  /* ===== Thème (indépendant de l'IA) ===== */
-  const root = document.documentElement;
-  const saved = localStorage.getItem('theme'); if (saved) root.setAttribute('data-theme', saved);
-  document.getElementById('theme').onclick = () => {
-    const cur = root.getAttribute('data-theme') || 'dark';
-    const next = cur === 'dark' ? 'light' : 'dark';
-    root.setAttribute('data-theme', next);
-    localStorage.setItem('theme', next);
-  };
+document.addEventListener('DOMContentLoaded',()=>{
+  const chatlog=document.getElementById('log');
+  const schema=document.getElementById('schema');
+  const briefEl=document.getElementById('brief');
+  const goBtn=document.getElementById('go');
+  const downloadBtn=document.getElementById('download');
+  const colors=["#1e90ff","#16a34a","#facc15","#ec4899","#8b5cf6"];
 
-  /* ===== UI ===== */
-  const quick = document.getElementById('quick');
-  const briefEl = document.getElementById('brief');
-  const logEl = document.getElementById('log');
-  const goBtn = document.getElementById('go');
-  const clearBtn = document.getElementById('clear');
-  function msg(who, html){ const d=document.createElement('div'); d.className='msg'; d.innerHTML=`<div class="who">${who}</div><div class="bubble">${html}</div>`; logEl.appendChild(d); logEl.scrollTop=logEl.scrollHeight; }
-  quick.addEventListener('click',(e)=>{ const b=e.target.closest('button[data-prompt]'); if(!b) return; briefEl.value=b.getAttribute('data-prompt'); });
-  clearBtn.onclick=()=> (logEl.innerHTML='');
-
-  /* ===== Barre d’état ===== */
-  const loader = document.getElementById('loader');
-  const lmsg = document.getElementById('lmsg');
-  const bar = document.getElementById('bar');
-  const stripe = document.getElementById('stripe');
-  document.getElementById('lclose').onclick=()=> loader.style.display='none';
-  let manual = 6;
-  function progress(p){
-    loader.style.display='block';
-    if (p && typeof p.progress === 'number'){
-      bar.style.width = Math.max(1, Math.min(100, Math.round(p.progress*100))) + '%';
-      stripe.style.display='none';
-    } else if (p && p.text && /(\d{1,3})\s?%/.test(p.text)){
-      bar.style.width = Math.min(100, parseInt(RegExp.$1,10)) + '%';
-      stripe.style.display='none';
-    } else {
-      stripe.style.display='block';
-      manual = Math.min(97, manual+1);
-      bar.style.width = manual + '%';
-    }
-    if (p && p.text) lmsg.textContent = p.text;
+  function msg(who,html){
+    const d=document.createElement('div');
+    d.className='msg';
+    d.innerHTML=`<div class="who">${who}</div><div class="bubble">${html}</div>`;
+    chatlog.appendChild(d);
+    chatlog.scrollTop=chatlog.scrollHeight;
   }
 
-  /* ===== IA locale (avec fallback démo) ===== */
-  const SYSTEM = `Tu es un architecte de données pédagogue.
-Réponds STRICTEMENT en JSON:
-{"rationale":"...","tables":[{"name":"...","fields":[{"name":"id","type":"INTEGER","pk":true,"unique":true,"notnull":true,"default":null}]}],"relations":[{"type":"1-1","from":"A","to":"B"},{"type":"1-N","from":"A","to":"B"},{"type":"N-N","from":"A","to":"B"}]}`;
-
-  let engine = null, engineReady = false, initTried = false;
-  async function initLLM(){
-    if (initTried) return; initTried = true;
-    try{
-      progress({text:"Préparation du modèle (local)..."});
-      const initProgressCallback = (p)=> progress(p);
-      const model = "Phi-3-mini-4k-instruct-q4f32_1-MLC";
-      if (window.webllm && 'createMLCEngine' in window.webllm) {
-        // Fallback: main thread (évite import.meta / workers)
-        engine = await window.webllm.createMLCEngine({ model, initProgressCallback });
-        engineReady = true; progress({progress:1,text:"Modèle prêt ✅"}); setTimeout(()=> loader.style.display='none', 800);
-      } else {
-        progress({text:"WebLLM indisponible — mode démo."});
-      }
-    }catch(e){
-      console.warn(e); progress({text:"Échec IA locale — mode démo."});
-    }
-  }
-  // Pré-chargement doux
-  (window.requestIdleCallback || ((fn)=>setTimeout(fn,800)))(()=> initLLM());
-
-  async function llmJSON(brief){
-    await initLLM();
-    if (engineReady){
-      const out = await engine.chat.completions.create({
-        messages:[{role:"user",content:`${SYSTEM}\nUtilisateur: ${brief}\nRéponds en JSON valide uniquement.`}],
-        temperature:0.1, stream:false
-      });
-      return out.choices?.[0]?.message?.content || "";
-    } else {
-      return demoGenerate(brief);
-    }
-  }
-
-  // Démo si IA HS (toujours renvoie un JSON propre)
   function demoGenerate(brief){
-    const b = (brief||"").toLowerCase();
-    const make = (tables, relations, rationale) => JSON.stringify({rationale,tables,relations},null,2);
-    if (b.includes("rh")) {
-      return make(
-        [
-          {name:"employees",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"first_name",type:"TEXT"},{name:"last_name",type:"TEXT"},{name:"email",type:"TEXT",unique:true},{name:"department_id",type:"INTEGER"}]},
-          {name:"departments",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"name",type:"TEXT",unique:true}]},
-          {name:"contracts",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"employee_id",type:"INTEGER"},{name:"type",type:"TEXT"},{name:"start_date",type:"DATE"},{name:"end_date",type:"DATE"}]}
-        ],
-        [{type:"1-N",from:"departments",to:"employees"},{type:"1-N",from:"employees",to:"contracts"}],
-        "Chaque salarié appartient à un service ; les contrats sont historisés par salarié. Emails uniques."
-      );
+    const b=brief.toLowerCase();
+    if(b.includes("rh")||b.includes("employé")||b.includes("collaborateur")){
+      return {
+        rationale:"Chaque salarié appartient à un service ; les contrats sont historisés par salarié. Emails uniques.",
+        tables:[
+          {name:"employees",fields:[
+            {name:"id",type:"INTEGER",pk:true},
+            {name:"first_name",type:"TEXT"},
+            {name:"last_name",type:"TEXT"},
+            {name:"email",type:"TEXT"},
+            {name:"department_id",type:"INTEGER"}
+          ]},
+          {name:"departments",fields:[
+            {name:"id",type:"INTEGER",pk:true},
+            {name:"name",type:"TEXT"}
+          ]},
+          {name:"contracts",fields:[
+            {name:"id",type:"INTEGER",pk:true},
+            {name:"employee_id",type:"INTEGER"},
+            {name:"type",type:"TEXT"},
+            {name:"start_date",type:"DATE"},
+            {name:"end_date",type:"DATE"}
+          ]}
+        ]
+      };
     }
-    if (b.includes("commerce")) {
-      return make(
-        [
-          {name:"customers",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"email",type:"TEXT",unique:true},{name:"name",type:"TEXT"}]},
-          {name:"products",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"name",type:"TEXT"},{name:"price",type:"REAL"}]},
-          {name:"orders",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"customer_id",type:"INTEGER"},{name:"order_date",type:"DATE"}]},
-          {name:"order_items",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"order_id",type:"INTEGER"},{name:"product_id",type:"INTEGER"},{name:"qty",type:"INTEGER"}]}
-        ],
-        [{type:"1-N",from:"customers",to:"orders"},{type:"1-N",from:"orders",to:"order_items"},{type:"1-N",from:"products",to:"order_items"}],
-        "Séparation clients/produits/commandes. Les lignes détaillent les quantités ; relations 1-N standard."
-      );
-    }
-    // CRM par défaut
-    return make(
-      [
-        {name:"companies",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"name",type:"TEXT",unique:true}]},
-        {name:"contacts",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"company_id",type:"INTEGER"},{name:"email",type:"TEXT",unique:true},{name:"full_name",type:"TEXT"}]},
-        {name:"deals",fields:[{name:"id",type:"INTEGER",pk:true,unique:true,notnull:true,default:null},{name:"company_id",type:"INTEGER"},{name:"stage",type:"TEXT"},{name:"amount",type:"REAL"}]}
-      ],
-      [{type:"1-N",from:"companies",to:"contacts"},{type:"1-N",from:"companies",to:"deals"}],
-      "CRM minimal : entreprises, contacts, opportunités (stades). Unicité sur email et nom d’entreprise."
-    );
+    return {rationale:"Base simple par défaut",tables:[]};
   }
 
-  /* ===== Chat flow ===== */
-  goBtn.onclick = async ()=>{
-    const brief = briefEl.value.trim();
-    if (!brief) return alert("Écris ton besoin.");
-    msg("Vous", brief);
-    msg("🤖", "Je prépare une proposition…");
-    try{
-      const raw = await llmJSON(brief);
-      let parsed; try{ parsed = JSON.parse(raw); }catch(e){ throw new Error("Réponse non-JSON:\n"+raw); }
-      msg("🤖", "<b>Proposition (JSON)</b> :<br><pre style='margin:6px 0 0'>"+JSON.stringify(parsed,null,2)+"</pre>");
-      // Le panneau d’édition sera ajouté plus tard (sur une autre page/étape)
-    }catch(err){
-      msg("❌", "Impossible de générer la proposition : " + (err.message||err));
-    }
+  function renderDB(db){
+    schema.innerHTML="";
+    db.tables.forEach((t,i)=>{
+      const card=document.createElement("div");
+      card.className="table-card";
+      card.style.background=colors[i%colors.length];
+      card.innerHTML=`<h3>${t.name}</h3><ul>${
+        t.fields.map(f=>`<li>${f.name} (${f.type}) ${f.pk?"🔑":""}</li>`).join("")
+      }</ul>`;
+      schema.appendChild(card);
+    });
+  }
+
+  function generateSQL(db){
+    let sql="";
+    db.tables.forEach(t=>{
+      sql+=`CREATE TABLE ${t.name} (\n`;
+      sql+=t.fields.map(f=>{
+        let def=`  ${f.name} ${f.type}`;
+        if(f.pk) def+=" PRIMARY KEY";
+        return def;
+      }).join(",\n");
+      sql+="\n);\n\n";
+    });
+    return sql;
+  }
+
+  goBtn.onclick=()=>{
+    const brief=briefEl.value.trim()||"Base RH de démo";
+    msg("Vous",brief);
+    const db=demoGenerate(brief);
+    msg("🤖","Voici une proposition de schéma JSON :<br><pre>"+JSON.stringify(db,null,2)+"</pre>");
+    renderDB(db);
+    // Activer le bouton téléchargement
+    downloadBtn.onclick=()=>{
+      const sql=generateSQL(db);
+      const blob=new Blob([sql],{type:"text/sql"});
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download="demo_rh.sql";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
   };
 });
 </script>
 </head>
+
 <body>
-<div class="wrap">
-  <div class="topbar">
-    <div><strong>DB Chat</strong> — crée un schéma SQL à partir d’un brief</div>
-    <button id="theme" title="Clair/Sombre">🌓 Thème</button>
-  </div>
-
-  <section class="card stack">
-    <div>
-      <h1>Assistant base de données</h1>
-      <div class="sub">Décrivez votre besoin métier. L’assistant conçoit un schéma clair et l’explique. <b>100% local</b> (pas de compte).</div>
-    </div>
-
-    <div class="row" id="quick">
-      <button data-prompt="CRM : entreprises, contacts, opportunités (stades), activités (appels, mails).">CRM</button>
-      <button data-prompt="E-commerce : clients, produits, catégories, commandes, lignes, paiements.">E-commerce</button>
-      <button data-prompt="Médiathèque : lecteurs, ouvrages, emprunts, retours, pénalités.">Médiathèque</button>
-      <button data-prompt="RH : collaborateurs, contrats, services, absences, évaluations, formations.">RH</button>
-    </div>
-
-    <textarea id="brief" placeholder="Ex : « Construis une base RH pour 120 salariés (collaborateurs, contrats, services, absences, évaluations). »"></textarea>
-    <div class="row">
-      <button class="primary" id="go">Proposer un schéma</button>
-      <button id="clear">Effacer</button>
-    </div>
+  <div class="wrap">
+    <h1>DB Chat 🎮 — Générateur de base SQL ludique</h1>
+    <textarea id="brief" placeholder="Décris ta base (ex : base RH, employés, contrats...)"></textarea>
+    <button class="primary" id="go">Générer</button>
 
     <div class="chatlog" id="log" aria-live="polite"></div>
-  </section>
-</div>
 
-<!-- Barre d'état (modèle) -->
-<div id="loader" aria-live="polite">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-    <div id="lmsg" class="sub">Initialisation…</div>
-    <button id="lclose">Masquer</button>
+    <section id="schema" class="schema"></section>
+
+    <div class="download">
+      <button id="download" class="primary">⬇️ Télécharger la base SQL</button>
+    </div>
   </div>
-  <div id="barWrap"><div id="bar"></div><div id="stripe"></div></div>
-</div>
 </body>
 </html>
