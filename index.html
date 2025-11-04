@@ -1,77 +1,154 @@
 <!doctype html>
-<html lang="fr" data-theme="dark">
+<html lang="fr" data-theme="light">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>DB Chat — Démo ludique SQL</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>DB Chat — Démo SQL</title>
+  <style>
+    :root{
+      --bg:#f8fafc;--panel:#ffffff;--muted:#f2f4f7;--txt:#0b0b0f;--sub:#64748b;--accent:#0ea5e9;--bd:#e5e7eb;--r:14px;
+    }
+    html[data-theme="dark"]{
+      --bg:#0b0b0b;--panel:#131313;--muted:#191919;--txt:#f7f7f7;--sub:#b7b7b7;--accent:#18a1ff;--bd:#242424;
+    }
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Arial,sans-serif}
+    .wrap{max-width:980px;margin:0 auto;padding:18px;display:grid;gap:14px}
+    .card{background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);padding:14px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .stack{display:flex;flex-direction:column;gap:10px}
+    .top{display:flex;justify-content:space-between;align-items:center}
+    h1{margin:0;font-size:20px}
+    .sub{font-size:13px;color:var(--sub)}
+    button{border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--txt);padding:9px 12px;cursor:pointer}
+    .primary{background:var(--accent);border-color:var(--accent);color:#fff}
+    textarea{width:100%;min-height:110px;border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--txt);padding:10px}
+    .chatlog{min-height:140px;border:1px solid var(--bd);border-radius:12px;padding:10px;background:var(--muted);overflow:auto}
+    .msg{margin:0 0 10px}
+    .who{font-size:12px;color:var(--sub);margin-bottom:2px}
+    .bubble{background:color-mix(in oklab, var(--panel), black 6%);border:1px solid var(--bd);padding:8px;border-radius:10px}
+    .schema{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:6px}
+    .table-card{border-radius:12px;padding:12px 16px;width:220px;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,.18);animation:pop .25s ease}
+    .table-card h3{margin:0 0 8px;font-size:16px}
+    .table-card ul{margin:0;padding-left:16px;list-style:none}
+    .table-card li{font-size:13px;margin:3px 0}
+    @keyframes pop{from{transform:scale(.96);opacity:.0}to{transform:scale(1);opacity:1}}
+    .downloads{display:flex;justify-content:center;gap:10px;margin:8px 0 4px}
+    pre.preview{white-space:pre-wrap;background:color-mix(in oklab, var(--panel), black 6%);border:1px solid var(--bd);padding:10px;border-radius:12px;max-height:340px;overflow:auto}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div><strong>DB Chat</strong> — crée un schéma SQL à partir d’un brief</div>
+      <button id="theme">🌓 Thème</button>
+    </div>
 
-<style>
-  :root{--bg:#0b0b0b;--panel:#131313;--muted:#191919;--txt:#f7f7f7;--sub:#b7b7b7;--accent:#18a1ff;--bd:#242424;--r:12px}
-  html[data-theme="light"]{--bg:#f8fafc;--panel:#ffffff;--muted:#f2f4f7;--txt:#0b0b0f;--sub:#64748b;--accent:#0ea5e9;--bd:#e5e7eb}
+    <section class="card stack">
+      <div>
+        <h1>Assistant base de données</h1>
+        <div class="sub">Décrivez votre besoin métier. L’assistant propose un schéma clair et l’explique. Aucun compte requis.</div>
+      </div>
 
-  body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Arial,sans-serif}
-  .wrap{max-width:900px;margin:0 auto;padding:16px;display:grid;gap:16px}
-  textarea{width:100%;min-height:90px;border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--txt);padding:10px}
-  button{border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--txt);padding:10px 14px;cursor:pointer}
-  .primary{background:var(--accent);border-color:var(--accent);color:#fff}
-  h1{margin:0;font-size:22px}
-  .chatlog{min-height:120px;border:1px solid var(--bd);border-radius:12px;padding:10px;background:rgba(255,255,255,0.02);overflow:auto}
-  .msg{margin:0 0 10px}
-  .who{font-size:12px;color:var(--sub);margin-bottom:2px}
-  .bubble{background:rgba(255,255,255,0.03);border:1px solid var(--bd);padding:8px;border-radius:10px}
+      <div class="row" id="quick">
+        <button data-prompt="CRM : entreprises, contacts, opportunités (stades), activités (appels, mails).">CRM</button>
+        <button data-prompt="E-commerce : clients, produits, catégories, commandes, lignes, paiements.">E-commerce</button>
+        <button data-prompt="Médiathèque : lecteurs, ouvrages, emprunts, retours, pénalités.">Médiathèque</button>
+        <button data-prompt="RH : collaborateurs, contrats, services, absences, évaluations, formations.">RH</button>
+        <button data-prompt="Base de données pour une asso de basket (équipes, joueurs, matchs, cotisations).">Asso de basket</button>
+      </div>
 
-  /* Visualisation */
-  .schema {display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:20px}
-  .table-card {
-    border-radius:12px;
-    padding:12px 16px;
-    width:220px;
-    color:#fff;
-    box-shadow:0 3px 8px rgba(0,0,0,0.3);
-    animation:pop 0.3s ease;
-    transition:transform .2s;
-  }
-  .table-card:hover{transform:scale(1.05);}
-  @keyframes pop {from{transform:scale(0.9);opacity:0;} to{transform:scale(1);opacity:1;}}
-  .table-card h3{margin:0 0 8px;font-size:17px}
-  .table-card ul{margin:0;padding-left:16px;list-style:none}
-  .table-card li{font-size:13px;margin:3px 0}
-  .download {margin-top:20px;text-align:center}
-</style>
+      <textarea id="brief" placeholder="Ex : « Base de données pour une asso de basket : joueurs, équipes, matchs, cotisations. »"></textarea>
+      <div class="row">
+        <button class="primary" id="go">Proposer un schéma</button>
+        <button id="clear">Effacer</button>
+      </div>
+
+      <div class="chatlog" id="log" aria-live="polite"></div>
+    </section>
+
+    <section class="card stack">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div><strong>Schéma proposé</strong> <span class="sub">(cartes + aperçus JSON/SQL)</span></div>
+        <div class="downloads">
+          <button id="dlJson" disabled>Télécharger JSON</button>
+          <button id="dlSql"  disabled>Télécharger SQL</button>
+        </div>
+      </div>
+
+      <div id="schema" class="schema"></div>
+
+      <details>
+        <summary>Voir le JSON</summary>
+        <pre id="jsonOut" class="preview">—</pre>
+      </details>
+      <details>
+        <summary>Voir le SQL</summary>
+        <pre id="sqlOut" class="preview">—</pre>
+      </details>
+    </section>
+  </div>
 
 <script>
-document.addEventListener('DOMContentLoaded',()=>{
-  const chatlog=document.getElementById('log');
-  const schema=document.getElementById('schema');
-  const briefEl=document.getElementById('brief');
-  const goBtn=document.getElementById('go');
-  const downloadBtn=document.getElementById('download');
-  const colors=["#1e90ff","#16a34a","#facc15","#ec4899","#8b5cf6"];
+(() => {
+  /* Thème */
+  const root = document.documentElement;
+  const saved = localStorage.getItem('theme');
+  if (saved) root.setAttribute('data-theme', saved);
+  document.getElementById('theme').onclick = () => {
+    const cur = root.getAttribute('data-theme') || 'light';
+    const next = cur === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+  };
 
-  function msg(who,html){
+  /* UI helpers */
+  const logEl = document.getElementById('log');
+  const schemaEl = document.getElementById('schema');
+  const briefEl = document.getElementById('brief');
+  const quick = document.getElementById('quick');
+  const goBtn = document.getElementById('go');
+  const clearBtn = document.getElementById('clear');
+  const dlJsonBtn = document.getElementById('dlJson');
+  const dlSqlBtn  = document.getElementById('dlSql');
+  const jsonOut = document.getElementById('jsonOut');
+  const sqlOut  = document.getElementById('sqlOut');
+
+  function msg(who, html){
     const d=document.createElement('div');
     d.className='msg';
     d.innerHTML=`<div class="who">${who}</div><div class="bubble">${html}</div>`;
-    chatlog.appendChild(d);
-    chatlog.scrollTop=chatlog.scrollHeight;
+    logEl.appendChild(d);
+    logEl.scrollTop=logEl.scrollHeight;
   }
+  quick.addEventListener('click',(e)=>{
+    const b=e.target.closest('button[data-prompt]'); if(!b) return;
+    briefEl.value = b.getAttribute('data-prompt');
+  });
+  clearBtn.onclick=()=> (logEl.innerHTML='');
 
-  function demoGenerate(brief){
-    const b=brief.toLowerCase();
-    if(b.includes("rh")||b.includes("employé")||b.includes("collaborateur")){
+  /* Couleurs cartes */
+  const colors = ["#1e90ff","#16a34a","#f59e0b","#ec4899","#8b5cf6","#22c55e","#06b6d4"];
+
+  /* Générateur “smart” (mots-clés) */
+  function smartGenerate(brief){
+    const b = (brief||"").toLowerCase();
+
+    // RH
+    if (/\brh\b|employ|collaborateur|salari/.test(b)) {
       return {
-        rationale:"Chaque salarié appartient à un service ; les contrats sont historisés par salarié. Emails uniques.",
+        rationale:"Chaque salarié appartient à un service ; les contrats sont historisés par salarié.",
         tables:[
           {name:"employees",fields:[
             {name:"id",type:"INTEGER",pk:true},
             {name:"first_name",type:"TEXT"},
             {name:"last_name",type:"TEXT"},
-            {name:"email",type:"TEXT"},
+            {name:"email",type:"TEXT",unique:true},
             {name:"department_id",type:"INTEGER"}
           ]},
           {name:"departments",fields:[
             {name:"id",type:"INTEGER",pk:true},
-            {name:"name",type:"TEXT"}
+            {name:"name",type:"TEXT",unique:true}
           ]},
           {name:"contracts",fields:[
             {name:"id",type:"INTEGER",pk:true},
@@ -80,73 +157,216 @@ document.addEventListener('DOMContentLoaded',()=>{
             {name:"start_date",type:"DATE"},
             {name:"end_date",type:"DATE"}
           ]}
+        ],
+        relations:[
+          {type:"1-N",from:"departments",to:"employees"},
+          {type:"1-N",from:"employees",to:"contracts"}
         ]
       };
     }
-    return {rationale:"Base simple par défaut",tables:[]};
-  }
 
-  function renderDB(db){
-    schema.innerHTML="";
-    db.tables.forEach((t,i)=>{
-      const card=document.createElement("div");
-      card.className="table-card";
-      card.style.background=colors[i%colors.length];
-      card.innerHTML=`<h3>${t.name}</h3><ul>${
-        t.fields.map(f=>`<li>${f.name} (${f.type}) ${f.pk?"🔑":""}</li>`).join("")
-      }</ul>`;
-      schema.appendChild(card);
-    });
-  }
+    // E-commerce
+    if (/e-?commerce|produit|commande|panier/.test(b)) {
+      return {
+        rationale:"Schéma e-commerce : clients, produits, commandes et lignes.",
+        tables:[
+          {name:"customers",fields:[
+            {name:"id",type:"INTEGER",pk:true},
+            {name:"name",type:"TEXT"},
+            {name:"email",type:"TEXT",unique:true}
+          ]},
+          {name:"products",fields:[
+            {name:"id",type:"INTEGER",pk:true},
+            {name:"name",type:"TEXT"},
+            {name:"price",type:"REAL"}
+          ]},
+          {name:"orders",fields:[
+            {name:"id",type:"INTEGER",pk:true},
+            {name:"customer_id",type:"INTEGER"},
+            {name:"order_date",type:"DATE"},
+            {name:"status",type:"TEXT"}
+          ]},
+          {name:"order_items",fields:[
+            {name:"id",type:"INTEGER",pk:true},
+            {name:"order_id",type:"INTEGER"},
+            {name:"product_id",type:"INTEGER"},
+            {name:"qty",type:"INTEGER"},
+            {name:"unit_price",type:"REAL"}
+          ]}
+        ],
+        relations:[
+          {type:"1-N",from:"customers",to:"orders"},
+          {type:"1-N",from:"orders",to:"order_items"},
+          {type:"1-N",from:"products",to:"order_items"}
+        ]
+      };
+    }
 
-  function generateSQL(db){
-    let sql="";
-    db.tables.forEach(t=>{
-      sql+=`CREATE TABLE ${t.name} (\n`;
-      sql+=t.fields.map(f=>{
-        let def=`  ${f.name} ${f.type}`;
-        if(f.pk) def+=" PRIMARY KEY";
-        return def;
-      }).join(",\n");
-      sql+="\n);\n\n";
-    });
-    return sql;
-  }
+    // Association de basket / sport
+    if (/basket|asso|club|sport|équipe|joueur/.test(b)) {
+      return {
+        rationale:"Modèle pour une association sportive : membres, équipes, matchs, cotisations.",
+        tables:[
+          {name:"members",fields:[
+            {name:"id",type:"INTEGER",pk:true},
+            {name:"first_name",type:"TEXT"},
+            {name:"last_name",type:"TEXT"},
+            {name:"role",type:"TEXT"},
+            {name:"license_number",type:"TEXT",unique:true}
+          ]},
+          {name:"teams",fields:[
+            {name:"id",type:"INTEGER",pk:true},
+            {name:"name",type:"TEXT"},
+            {name:"category",type:"TEXT"}
+          ]},
+          {name:"team_members",fields:[
+            {name:"id",type:"INTEGER",pk:true},
+            {name:"team_id",type:"INTEGER"},
+            {name:"member_id",type:"INTEGER"},
+            {name:"number",type:"INTEGER"}
+          ]},
+          {name:"matches",fields:[
+            {name:"id",type:"INTEGER",pk:true},
+            {name:"team_id",type:"INTEGER"},
+            {name:"opponent",type:"TEXT"},
+            {name:"date",type:"DATE"},
+            {name:"home",type:"BOOLEAN"},
+            {name:"score",type:"TEXT"}
+          ]},
+          {name:"payments",fields:[
+            {name:"id",type:"INTEGER",pk:true},
+            {name:"member_id",type:"INTEGER"},
+            {name:"season",type:"TEXT"},
+            {name:"amount",type:"REAL"},
+            {name:"paid_on",type:"DATE"}
+          ]}
+        ],
+        relations:[
+          {type:"N-N",from:"teams",to:"members"},   // via team_members
+          {type:"1-N",from:"teams",to:"matches"},
+          {type:"1-N",from:"members",to:"payments"}
+        ]
+      };
+    }
 
-  goBtn.onclick=()=>{
-    const brief=briefEl.value.trim()||"Base RH de démo";
-    msg("Vous",brief);
-    const db=demoGenerate(brief);
-    msg("🤖","Voici une proposition de schéma JSON :<br><pre>"+JSON.stringify(db,null,2)+"</pre>");
-    renderDB(db);
-    // Activer le bouton téléchargement
-    downloadBtn.onclick=()=>{
-      const sql=generateSQL(db);
-      const blob=new Blob([sql],{type:"text/sql"});
-      const a=document.createElement("a");
-      a.href=URL.createObjectURL(blob);
-      a.download="demo_rh.sql";
-      a.click();
-      URL.revokeObjectURL(a.href);
+    // Par défaut : CRM
+    return {
+      rationale:"CRM minimal : entreprises, contacts et opportunités.",
+      tables:[
+        {name:"companies",fields:[
+          {name:"id",type:"INTEGER",pk:true},
+          {name:"name",type:"TEXT",unique:true}
+        ]},
+        {name:"contacts",fields:[
+          {name:"id",type:"INTEGER",pk:true},
+          {name:"company_id",type:"INTEGER"},
+          {name:"email",type:"TEXT",unique:true},
+          {name:"full_name",type:"TEXT"}
+        ]},
+        {name:"deals",fields:[
+          {name:"id",type:"INTEGER",pk:true},
+          {name:"company_id",type:"INTEGER"},
+          {name:"stage",type:"TEXT"},
+          {name:"amount",type:"REAL"}
+        ]}
+      ],
+      relations:[
+        {type:"1-N",from:"companies",to:"contacts"},
+        {type:"1-N",from:"companies",to:"deals"}
+      ]
     };
+  }
+
+  function createCard(table, color){
+    const c = document.createElement('div');
+    c.className='table-card';
+    c.style.background=color;
+    c.innerHTML = `<h3>${table.name}</h3>
+      <ul>${table.fields.map(f=>`<li>${f.name} <span style="opacity:.75">(${f.type})${f.pk?' • PK':''}${f.unique?' • unique':''}</span></li>`).join('')}</ul>`;
+    return c;
+  }
+
+  // Génération SQL (DDL) à partir du JSON
+  function ddlFromSchema(s){
+    const map = Object.fromEntries(s.tables.map(t=>[t.name, t]));
+    let sql = "PRAGMA foreign_keys = ON;\n\n";
+    for (const t of s.tables){
+      const defs = [];
+      const uniques = [];
+      for (const f of t.fields){
+        const parts = [f.name, f.type || "TEXT"];
+        if (f.pk) parts.push("PRIMARY KEY");
+        if (f.notnull) parts.push("NOT NULL");
+        if (f.unique) uniques.push(f.name);
+        if (f.default != null) parts.push("DEFAULT "+String(f.default));
+        defs.push(parts.join(" "));
+      }
+      // clés étrangères implicites si *_id
+      for (const f of t.fields){
+        if (/_id$/.test(f.name)){
+          const base = f.name.replace(/_id$/,'');
+          const candidates = [base, base+"s", base+"es"];
+          const ref = candidates.find(x=>map[x]);
+          if (ref) defs.push(`FOREIGN KEY (${f.name}) REFERENCES ${ref}(id) ON DELETE CASCADE`);
+        }
+      }
+      uniques.forEach(u=>defs.push(`UNIQUE (${u})`));
+      sql += `CREATE TABLE IF NOT EXISTS ${t.name} (\n  ${defs.join(",\n  ")}\n);\n\n`;
+    }
+    // Relations déclaratives (optionnel)
+    if (Array.isArray(s.relations)){
+      sql += "-- Relations logiques:\n";
+      for (const r of s.relations){
+        sql += `-- ${r.type} : ${r.from} -> ${r.to}\n`;
+      }
+    }
+    return sql.trim() + "\n";
+  }
+
+  let lastSchema = null;
+
+  goBtn.onclick = () => {
+    const brief = briefEl.value.trim();
+    if (!brief) return alert("Décris ton besoin 👇");
+    msg("Vous", brief);
+    msg("🤖", "Je prépare une proposition…");
+
+    const proposal = smartGenerate(brief);
+    lastSchema = proposal;
+
+    // Chat + cartes
+    schemaEl.innerHTML = "";
+    msg("🤖", "🧠 " + proposal.rationale);
+    proposal.tables.forEach((t,i)=> schemaEl.appendChild(createCard(t, colors[i%colors.length])));
+
+    // Prévisualisations
+    jsonOut.textContent = JSON.stringify(proposal, null, 2);
+    sqlOut.textContent  = ddlFromSchema(proposal);
+
+    // Activer les téléchargements
+    dlJsonBtn.disabled = false;
+    dlSqlBtn.disabled  = false;
   };
-});
+
+  dlJsonBtn.onclick = () => {
+    if (!lastSchema) return;
+    const blob = new Blob([JSON.stringify(lastSchema, null, 2)], {type:"application/json"});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = "schema.json";
+    a.click();
+  };
+
+  dlSqlBtn.onclick = () => {
+    if (!lastSchema) return;
+    const ddl = sqlOut.textContent || "";
+    const blob = new Blob([ddl], {type:"text/sql"});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = "schema.sql";
+    a.click();
+  };
+})();
 </script>
-</head>
-
-<body>
-  <div class="wrap">
-    <h1>DB Chat 🎮 — Générateur de base SQL ludique</h1>
-    <textarea id="brief" placeholder="Décris ta base (ex : base RH, employés, contrats...)"></textarea>
-    <button class="primary" id="go">Générer</button>
-
-    <div class="chatlog" id="log" aria-live="polite"></div>
-
-    <section id="schema" class="schema"></section>
-
-    <div class="download">
-      <button id="download" class="primary">⬇️ Télécharger la base SQL</button>
-    </div>
-  </div>
 </body>
 </html>
