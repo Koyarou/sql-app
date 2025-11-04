@@ -3,62 +3,89 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>DB Chat — Démo SQL</title>
+  <title>DB Chat — Schéma SQL ludique</title>
+
+  <!-- Styles -->
   <style>
     :root{
-      --bg:#f8fafc;--panel:#ffffff;--muted:#f2f4f7;--txt:#0b0b0f;--sub:#64748b;--accent:#0ea5e9;--bd:#e5e7eb;--r:14px;
+      --bg:#f8fafc;--panel:#ffffff;--muted:#f2f4f7;--txt:#0b0b0f;--sub:#64748b;--accent:#0ea5e9;--bd:#e5e7eb;--ok:#16a34a;--warn:#f59e0b;--r:14px
     }
     html[data-theme="dark"]{
-      --bg:#0b0b0b;--panel:#131313;--muted:#191919;--txt:#f7f7f7;--sub:#b7b7b7;--accent:#18a1ff;--bd:#242424;
+      --bg:#0b0b0b;--panel:#131313;--muted:#191919;--txt:#f7f7f7;--sub:#b7b7b7;--accent:#18a1ff;--bd:#242424
     }
+    *{box-sizing:border-box}
     html,body{height:100%}
     body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Arial,sans-serif}
-    .wrap{max-width:980px;margin:0 auto;padding:18px;display:grid;gap:14px}
-    .card{background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);padding:14px}
-    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    .stack{display:flex;flex-direction:column;gap:10px}
+    .wrap{max-width:1100px;margin:0 auto;padding:18px;display:grid;gap:14px}
     .top{display:flex;justify-content:space-between;align-items:center}
-    h1{margin:0;font-size:20px}
-    .sub{font-size:13px;color:var(--sub)}
     button{border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--txt);padding:9px 12px;cursor:pointer}
-    .primary{background:var(--accent);border-color:var(--accent);color:#fff}
+    button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+    .card{background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);padding:14px}
+    .stack{display:flex;flex-direction:column;gap:10px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .sub{font-size:13px;color:var(--sub)}
+    h1{margin:0;font-size:20px}
     textarea{width:100%;min-height:110px;border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--txt);padding:10px}
-    .chatlog{min-height:140px;border:1px solid var(--bd);border-radius:12px;padding:10px;background:var(--muted);overflow:auto}
-    .msg{margin:0 0 10px}
-    .who{font-size:12px;color:var(--sub);margin-bottom:2px}
+    .chatlog{min-height:120px;border:1px solid var(--bd);border-radius:12px;padding:10px;background:var(--muted);overflow:auto}
+    .msg{margin:0 0 10px}.who{font-size:12px;color:var(--sub);margin-bottom:2px}
     .bubble{background:color-mix(in oklab, var(--panel), black 6%);border:1px solid var(--bd);padding:8px;border-radius:10px}
-    .schema{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:6px}
-    .table-card{border-radius:12px;padding:12px 16px;width:220px;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,.18);animation:pop .25s ease}
-    .table-card h3{margin:0 0 8px;font-size:16px}
-    .table-card ul{margin:0;padding-left:16px;list-style:none}
-    .table-card li{font-size:13px;margin:3px 0}
+
+    /* Table cards */
+    .schema{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:6px}
+    .table-card{border-radius:12px;padding:12px 14px;background:var(--panel);border:1px solid var(--bd);box-shadow:0 6px 16px rgba(0,0,0,.10);animation:pop .25s ease}
+    .table-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+    .dot{width:10px;height:10px;border-radius:50%}
+    .table-card h3{margin:0;font-size:16px}
+    .table-card ul{margin:8px 0 0;padding-left:16px}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;font-size:12px;border:1px solid var(--bd);background:color-mix(in oklab, var(--panel), black 4%);margin:2px 4px 0 0}
+
+    /* Relations board */
+    .relboard{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0}
+    .rel-11{background:#e9d5ff;border-color:#c4b5fd}
+    .rel-1n{background:#dbeafe;border-color:#93c5fd}
+    .rel-nn{background:#dcfce7;border-color:#86efac}
+
+    /* Mermaid box */
+    .erd{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:10px;overflow:auto}
+
+    /* Downloads */
+    .downloads{display:flex;gap:8px;flex-wrap:wrap}
+    pre.preview{white-space:pre-wrap;background:color-mix(in oklab, var(--panel), black 6%);border:1px solid var(--bd);padding:10px;border-radius:12px;max-height:320px;overflow:auto}
+
+    /* Status bar */
+    #status{position:fixed;left:16px;right:16px;bottom:16px;max-width:560px;margin:0 auto;background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:10px;display:none;z-index:5}
+    #barWrap{height:10px;background:color-mix(in oklab, var(--panel), black 12%);border-radius:7px;overflow:hidden}
+    #bar{height:10px;background:var(--accent);width:0%;transition:width .2s}
+
     @keyframes pop{from{transform:scale(.96);opacity:.0}to{transform:scale(1);opacity:1}}
-    .downloads{display:flex;justify-content:center;gap:10px;margin:8px 0 4px}
-    pre.preview{white-space:pre-wrap;background:color-mix(in oklab, var(--panel), black 6%);border:1px solid var(--bd);padding:10px;border-radius:12px;max-height:340px;overflow:auto}
   </style>
+
+  <!-- Mermaid for ERD -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({ startOnLoad:false, theme: (document.documentElement.getAttribute('data-theme')==='dark'?'dark':'default') });</script>
 </head>
 <body>
   <div class="wrap">
     <div class="top">
-      <div><strong>DB Chat</strong> — crée un schéma SQL à partir d’un brief</div>
+      <div><strong>DB Chat</strong> — schéma SQL ludique (brief → cartes → ERD → export)</div>
       <button id="theme">🌓 Thème</button>
     </div>
 
+    <!-- Chat : génération initiale -->
     <section class="card stack">
       <div>
         <h1>Assistant base de données</h1>
-        <div class="sub">Décrivez votre besoin métier. L’assistant propose un schéma clair et l’explique. Aucun compte requis.</div>
+        <div class="sub">Décris ton besoin (ex. « asso de basket : équipes, joueurs, matchs, cotisations »). Je propose un schéma et une logique métier.</div>
       </div>
 
       <div class="row" id="quick">
-        <button data-prompt="CRM : entreprises, contacts, opportunités (stades), activités (appels, mails).">CRM</button>
-        <button data-prompt="E-commerce : clients, produits, catégories, commandes, lignes, paiements.">E-commerce</button>
+        <button data-prompt="CRM : entreprises, contacts, opportunités, activités.">CRM</button>
+        <button data-prompt="E-commerce : clients, produits, commandes, lignes, paiements.">E-commerce</button>
         <button data-prompt="Médiathèque : lecteurs, ouvrages, emprunts, retours, pénalités.">Médiathèque</button>
-        <button data-prompt="RH : collaborateurs, contrats, services, absences, évaluations, formations.">RH</button>
-        <button data-prompt="Base de données pour une asso de basket (équipes, joueurs, matchs, cotisations).">Asso de basket</button>
+        <button data-prompt="Asso de basket : équipes, joueurs, matchs, cotisations.">Asso de basket</button>
       </div>
 
-      <textarea id="brief" placeholder="Ex : « Base de données pour une asso de basket : joueurs, équipes, matchs, cotisations. »"></textarea>
+      <textarea id="brief" placeholder="Ex : « Base de données pour une asso de basket (équipes, joueurs, matchs, cotisations) »"></textarea>
       <div class="row">
         <button class="primary" id="go">Proposer un schéma</button>
         <button id="clear">Effacer</button>
@@ -67,17 +94,29 @@
       <div class="chatlog" id="log" aria-live="polite"></div>
     </section>
 
-    <section class="card stack">
+    <!-- Résultats : cartes + relations + ERD + export -->
+    <section class="card stack" id="result" style="display:none">
       <div class="row" style="justify-content:space-between;align-items:center">
-        <div><strong>Schéma proposé</strong> <span class="sub">(cartes + aperçus JSON/SQL)</span></div>
+        <div><strong>Schéma proposé</strong> <span class="sub">— cartes, relations & ERD</span></div>
         <div class="downloads">
           <button id="dlJson" disabled>Télécharger JSON</button>
           <button id="dlSql"  disabled>Télécharger SQL</button>
         </div>
       </div>
 
+      <!-- Relations en “pills” lisibles -->
+      <div id="relBoard" class="relboard"></div>
+
+      <!-- Cartes Tables -->
       <div id="schema" class="schema"></div>
 
+      <!-- ERD Mermaid -->
+      <details open>
+        <summary>Diagramme entité-relation (ERD)</summary>
+        <div id="erd" class="erd">—</div>
+      </details>
+
+      <!-- Prévisualisations -->
       <details>
         <summary>Voir le JSON</summary>
         <pre id="jsonOut" class="preview">—</pre>
@@ -87,286 +126,380 @@
         <pre id="sqlOut" class="preview">—</pre>
       </details>
     </section>
+
+    <!-- Refinement Chat : modifier le résultat par instructions -->
+    <section class="card stack" id="refine" style="display:none">
+      <div>
+        <strong>Affiner par chat</strong>
+        <div class="sub">Exemples : “ajoute colonne <b>email</b> (TEXT) dans <b>members</b> unique” · “relation <b>N-N</b> entre <b>teams</b> et <b>members</b>” · “supprime table <b>payments</b>”.</div>
+      </div>
+      <div class="row">
+        <input id="editInput" placeholder="Écris une consigne (français naturel)" style="flex:1; padding:10px; border:1px solid var(--bd); border-radius:10px; background:transparent; color:var(--txt)"/>
+        <button class="primary" id="applyEdit">Appliquer</button>
+      </div>
+      <div class="chatlog" id="editLog" aria-live="polite"></div>
+    </section>
   </div>
 
-<script>
-(() => {
-  /* Thème */
-  const root = document.documentElement;
-  const saved = localStorage.getItem('theme');
-  if (saved) root.setAttribute('data-theme', saved);
-  document.getElementById('theme').onclick = () => {
-    const cur = root.getAttribute('data-theme') || 'light';
-    const next = cur === 'dark' ? 'light' : 'dark';
-    root.setAttribute('data-theme', next);
-    localStorage.setItem('theme', next);
-  };
+  <!-- Barre d’état -->
+  <div id="status" aria-live="polite">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div id="statMsg" class="sub">Prêt.</div>
+      <button id="statClose">Masquer</button>
+    </div>
+    <div id="barWrap"><div id="bar"></div></div>
+  </div>
 
-  /* UI helpers */
-  const logEl = document.getElementById('log');
-  const schemaEl = document.getElementById('schema');
-  const briefEl = document.getElementById('brief');
-  const quick = document.getElementById('quick');
-  const goBtn = document.getElementById('go');
-  const clearBtn = document.getElementById('clear');
-  const dlJsonBtn = document.getElementById('dlJson');
-  const dlSqlBtn  = document.getElementById('dlSql');
-  const jsonOut = document.getElementById('jsonOut');
-  const sqlOut  = document.getElementById('sqlOut');
-
-  function msg(who, html){
-    const d=document.createElement('div');
-    d.className='msg';
-    d.innerHTML=`<div class="who">${who}</div><div class="bubble">${html}</div>`;
-    logEl.appendChild(d);
-    logEl.scrollTop=logEl.scrollHeight;
-  }
-  quick.addEventListener('click',(e)=>{
-    const b=e.target.closest('button[data-prompt]'); if(!b) return;
-    briefEl.value = b.getAttribute('data-prompt');
-  });
-  clearBtn.onclick=()=> (logEl.innerHTML='');
-
-  /* Couleurs cartes */
-  const colors = ["#1e90ff","#16a34a","#f59e0b","#ec4899","#8b5cf6","#22c55e","#06b6d4"];
-
-  /* Générateur “smart” (mots-clés) */
-  function smartGenerate(brief){
-    const b = (brief||"").toLowerCase();
-
-    // RH
-    if (/\brh\b|employ|collaborateur|salari/.test(b)) {
-      return {
-        rationale:"Chaque salarié appartient à un service ; les contrats sont historisés par salarié.",
-        tables:[
-          {name:"employees",fields:[
-            {name:"id",type:"INTEGER",pk:true},
-            {name:"first_name",type:"TEXT"},
-            {name:"last_name",type:"TEXT"},
-            {name:"email",type:"TEXT",unique:true},
-            {name:"department_id",type:"INTEGER"}
-          ]},
-          {name:"departments",fields:[
-            {name:"id",type:"INTEGER",pk:true},
-            {name:"name",type:"TEXT",unique:true}
-          ]},
-          {name:"contracts",fields:[
-            {name:"id",type:"INTEGER",pk:true},
-            {name:"employee_id",type:"INTEGER"},
-            {name:"type",type:"TEXT"},
-            {name:"start_date",type:"DATE"},
-            {name:"end_date",type:"DATE"}
-          ]}
-        ],
-        relations:[
-          {type:"1-N",from:"departments",to:"employees"},
-          {type:"1-N",from:"employees",to:"contracts"}
-        ]
-      };
-    }
-
-    // E-commerce
-    if (/e-?commerce|produit|commande|panier/.test(b)) {
-      return {
-        rationale:"Schéma e-commerce : clients, produits, commandes et lignes.",
-        tables:[
-          {name:"customers",fields:[
-            {name:"id",type:"INTEGER",pk:true},
-            {name:"name",type:"TEXT"},
-            {name:"email",type:"TEXT",unique:true}
-          ]},
-          {name:"products",fields:[
-            {name:"id",type:"INTEGER",pk:true},
-            {name:"name",type:"TEXT"},
-            {name:"price",type:"REAL"}
-          ]},
-          {name:"orders",fields:[
-            {name:"id",type:"INTEGER",pk:true},
-            {name:"customer_id",type:"INTEGER"},
-            {name:"order_date",type:"DATE"},
-            {name:"status",type:"TEXT"}
-          ]},
-          {name:"order_items",fields:[
-            {name:"id",type:"INTEGER",pk:true},
-            {name:"order_id",type:"INTEGER"},
-            {name:"product_id",type:"INTEGER"},
-            {name:"qty",type:"INTEGER"},
-            {name:"unit_price",type:"REAL"}
-          ]}
-        ],
-        relations:[
-          {type:"1-N",from:"customers",to:"orders"},
-          {type:"1-N",from:"orders",to:"order_items"},
-          {type:"1-N",from:"products",to:"order_items"}
-        ]
-      };
-    }
-
-    // Association de basket / sport
-    if (/basket|asso|club|sport|équipe|joueur/.test(b)) {
-      return {
-        rationale:"Modèle pour une association sportive : membres, équipes, matchs, cotisations.",
-        tables:[
-          {name:"members",fields:[
-            {name:"id",type:"INTEGER",pk:true},
-            {name:"first_name",type:"TEXT"},
-            {name:"last_name",type:"TEXT"},
-            {name:"role",type:"TEXT"},
-            {name:"license_number",type:"TEXT",unique:true}
-          ]},
-          {name:"teams",fields:[
-            {name:"id",type:"INTEGER",pk:true},
-            {name:"name",type:"TEXT"},
-            {name:"category",type:"TEXT"}
-          ]},
-          {name:"team_members",fields:[
-            {name:"id",type:"INTEGER",pk:true},
-            {name:"team_id",type:"INTEGER"},
-            {name:"member_id",type:"INTEGER"},
-            {name:"number",type:"INTEGER"}
-          ]},
-          {name:"matches",fields:[
-            {name:"id",type:"INTEGER",pk:true},
-            {name:"team_id",type:"INTEGER"},
-            {name:"opponent",type:"TEXT"},
-            {name:"date",type:"DATE"},
-            {name:"home",type:"BOOLEAN"},
-            {name:"score",type:"TEXT"}
-          ]},
-          {name:"payments",fields:[
-            {name:"id",type:"INTEGER",pk:true},
-            {name:"member_id",type:"INTEGER"},
-            {name:"season",type:"TEXT"},
-            {name:"amount",type:"REAL"},
-            {name:"paid_on",type:"DATE"}
-          ]}
-        ],
-        relations:[
-          {type:"N-N",from:"teams",to:"members"},   // via team_members
-          {type:"1-N",from:"teams",to:"matches"},
-          {type:"1-N",from:"members",to:"payments"}
-        ]
-      };
-    }
-
-    // Par défaut : CRM
-    return {
-      rationale:"CRM minimal : entreprises, contacts et opportunités.",
-      tables:[
-        {name:"companies",fields:[
-          {name:"id",type:"INTEGER",pk:true},
-          {name:"name",type:"TEXT",unique:true}
-        ]},
-        {name:"contacts",fields:[
-          {name:"id",type:"INTEGER",pk:true},
-          {name:"company_id",type:"INTEGER"},
-          {name:"email",type:"TEXT",unique:true},
-          {name:"full_name",type:"TEXT"}
-        ]},
-        {name:"deals",fields:[
-          {name:"id",type:"INTEGER",pk:true},
-          {name:"company_id",type:"INTEGER"},
-          {name:"stage",type:"TEXT"},
-          {name:"amount",type:"REAL"}
-        ]}
-      ],
-      relations:[
-        {type:"1-N",from:"companies",to:"contacts"},
-        {type:"1-N",from:"companies",to:"deals"}
-      ]
+  <!-- Logic -->
+  <script>
+  (function(){
+    /* ===== THEME ===== */
+    const root=document.documentElement;
+    const saved=localStorage.getItem('theme'); if(saved) root.setAttribute('data-theme', saved);
+    document.getElementById('theme').onclick=()=>{
+      const cur=root.getAttribute('data-theme')||'light';
+      const next=cur==='dark'?'light':'dark';
+      root.setAttribute('data-theme',next);
+      localStorage.setItem('theme',next);
+      mermaid.initialize({ startOnLoad:false, theme: (next==='dark'?'dark':'default') });
+      if (lastSchema) renderERD(lastSchema); // re-thème ERD
     };
-  }
 
-  function createCard(table, color){
-    const c = document.createElement('div');
-    c.className='table-card';
-    c.style.background=color;
-    c.innerHTML = `<h3>${table.name}</h3>
-      <ul>${table.fields.map(f=>`<li>${f.name} <span style="opacity:.75">(${f.type})${f.pk?' • PK':''}${f.unique?' • unique':''}</span></li>`).join('')}</ul>`;
-    return c;
-  }
+    /* ===== ELEMENTS ===== */
+    const logEl = document.getElementById('log');
+    const editLogEl = document.getElementById('editLog');
+    const schemaEl = document.getElementById('schema');
+    const relBoardEl = document.getElementById('relBoard');
+    const jsonOut = document.getElementById('jsonOut');
+    const sqlOut = document.getElementById('sqlOut');
+    const resultSec = document.getElementById('result');
+    const refineSec = document.getElementById('refine');
+    const dlJsonBtn = document.getElementById('dlJson');
+    const dlSqlBtn  = document.getElementById('dlSql');
 
-  // Génération SQL (DDL) à partir du JSON
-  function ddlFromSchema(s){
-    const map = Object.fromEntries(s.tables.map(t=>[t.name, t]));
-    let sql = "PRAGMA foreign_keys = ON;\n\n";
-    for (const t of s.tables){
-      const defs = [];
-      const uniques = [];
-      for (const f of t.fields){
-        const parts = [f.name, f.type || "TEXT"];
-        if (f.pk) parts.push("PRIMARY KEY");
-        if (f.notnull) parts.push("NOT NULL");
-        if (f.unique) uniques.push(f.name);
-        if (f.default != null) parts.push("DEFAULT "+String(f.default));
-        defs.push(parts.join(" "));
-      }
-      // clés étrangères implicites si *_id
-      for (const f of t.fields){
-        if (/_id$/.test(f.name)){
-          const base = f.name.replace(/_id$/,'');
-          const candidates = [base, base+"s", base+"es"];
-          const ref = candidates.find(x=>map[x]);
-          if (ref) defs.push(`FOREIGN KEY (${f.name}) REFERENCES ${ref}(id) ON DELETE CASCADE`);
-        }
-      }
-      uniques.forEach(u=>defs.push(`UNIQUE (${u})`));
-      sql += `CREATE TABLE IF NOT EXISTS ${t.name} (\n  ${defs.join(",\n  ")}\n);\n\n`;
+    /* ===== STATUS BAR ===== */
+    const status = document.getElementById('status');
+    const statMsg = document.getElementById('statMsg');
+    const bar = document.getElementById('bar');
+    document.getElementById('statClose').onclick=()=> status.style.display='none';
+    function setStatus(text, p){ status.style.display='block'; statMsg.textContent=text; if(typeof p==='number'){ bar.style.width=(Math.max(0,Math.min(100,p)))+'%'; } }
+
+    /* ===== CHAT HELPERS ===== */
+    function msg(container, who, html){
+      const d=document.createElement('div'); d.className='msg';
+      d.innerHTML=`<div class="who">${who}</div><div class="bubble">${html}</div>`;
+      container.appendChild(d); container.scrollTop=container.scrollHeight;
     }
-    // Relations déclaratives (optionnel)
-    if (Array.isArray(s.relations)){
-      sql += "-- Relations logiques:\n";
-      for (const r of s.relations){
-        sql += `-- ${r.type} : ${r.from} -> ${r.to}\n`;
+
+    document.getElementById('quick').addEventListener('click',(e)=>{
+      const b=e.target.closest('button[data-prompt]'); if(!b) return;
+      document.getElementById('brief').value=b.getAttribute('data-prompt');
+    });
+    document.getElementById('clear').onclick=()=> (logEl.innerHTML='');
+
+    /* ===== SMART GENERATE ===== */
+    function smartGenerate(brief){
+      const b=(brief||'').toLowerCase();
+      if(/\brh\b|employ|collaborateur|salari/.test(b)){
+        return {
+          rationale:"Chaque salarié appartient à un service ; contrats historisés.",
+          tables:[
+            {name:"employees",fields:[pk(),t("first_name"),t("last_name"),uniq("email"),i("department_id")]},
+            {name:"departments",fields:[pk(),uniq("name")]},
+            {name:"contracts",fields:[pk(),i("employee_id"),t("type"),d("start_date"),d("end_date")]}
+          ],
+          relations:[{type:"1-N",from:"departments",to:"employees"},{type:"1-N",from:"employees",to:"contracts"}]
+        };
+      }
+      if(/e-?commerce|produit|commande|panier/.test(b)){
+        return {
+          rationale:"Clients, produits, commandes et lignes.",
+          tables:[
+            {name:"customers",fields:[pk(),t("name"),uniq("email")]},
+            {name:"products",fields:[pk(),t("name"),r("price")]},
+            {name:"orders",fields:[pk(),i("customer_id"),d("order_date"),t("status")]},
+            {name:"order_items",fields:[pk(),i("order_id"),i("product_id"),i("qty"),r("unit_price")]}
+          ],
+          relations:[{type:"1-N",from:"customers",to:"orders"},{type:"1-N",from:"orders",to:"order_items"},{type:"1-N",from:"products",to:"order_items"}]
+        };
+      }
+      if(/basket|asso|club|sport|équipe|joueur/.test(b)){
+        return {
+          rationale:"Association sportive : membres, équipes, matchs, cotisations.",
+          tables:[
+            {name:"members",fields:[pk(),t("first_name"),t("last_name"),t("role"),uniq("license_number")]},
+            {name:"teams",fields:[pk(),t("name"),t("category")]},
+            {name:"team_members",fields:[pk(),i("team_id"),i("member_id"),i("number")]},
+            {name:"matches",fields:[pk(),i("team_id"),t("opponent"),d("date"),b("home"),t("score")]},
+            {name:"payments",fields:[pk(),i("member_id"),t("season"),r("amount"),d("paid_on")]}
+          ],
+          relations:[{type:"N-N",from:"teams",to:"members"},{type:"1-N",from:"teams",to:"matches"},{type:"1-N",from:"members",to:"payments"}]
+        };
+      }
+      return {
+        rationale:"CRM minimal : entreprises, contacts, opportunités.",
+        tables:[
+          {name:"companies",fields:[pk(),uniq("name")]},
+          {name:"contacts",fields:[pk(),i("company_id"),uniq("email"),t("full_name")]},
+          {name:"deals",fields:[pk(),i("company_id"),t("stage"),r("amount")]}
+        ],
+        relations:[{type:"1-N",from:"companies",to:"contacts"},{type:"1-N",from:"companies",to:"deals"}]
+      };
+    }
+
+    /* Field constructors */
+    const pk   =(name="id")=>({name, type:"INTEGER", pk:true, unique:true, notnull:true, default:null});
+    const t    =name=>({name, type:"TEXT"});
+    const i    =name=>({name, type:"INTEGER"});
+    const r    =name=>({name, type:"REAL"});
+    const d    =name=>({name, type:"DATE"});
+    const dt   =name=>({name, type:"DATETIME"});
+    const b    =name=>({name, type:"BOOLEAN"});
+    const uniq =(name, type="TEXT")=>({name, type, unique:true});
+
+    /* ===== RENDER ===== */
+    function color(i){ return ["#1e90ff","#16a34a","#f59e0b","#ec4899","#8b5cf6","#06b6d4","#22c55e"][i%7]; }
+    function tableCard(t,i){
+      const el=document.createElement('div'); el.className='table-card';
+      el.innerHTML = `
+        <div class="table-head">
+          <div class="dot" style="background:${color(i)}"></div>
+          <h3>${t.name}</h3>
+        </div>
+        <ul>${(t.fields||[]).map(f=>`<li>${f.name} <span class="sub">(${f.type})${f.pk?' • PK':''}${f.unique?' • unique':''}${f.notnull?' • not null':''}</span></li>`).join('')}</ul>
+      `;
+      return el;
+    }
+    function renderRelBoard(s){
+      relBoardEl.innerHTML="";
+      (s.relations||[]).forEach(r=>{
+        const chip=document.createElement('span');
+        const cls = r.type==="1-1"?"rel-11":(r.type==="1-N"?"rel-1n":"rel-nn");
+        chip.className='pill '+cls;
+        const label = (r.type==="1-1"?"1-1":(r.type==="1-N"?"1-N":"N-N"));
+        chip.innerHTML = `<strong>${label}</strong> ${r.from} → ${r.to}`;
+        relBoardEl.appendChild(chip);
+      });
+      if(!s.relations || s.relations.length===0){
+        const chip=document.createElement('span'); chip.className='pill'; chip.textContent="Aucune relation déclarée";
+        relBoardEl.appendChild(chip);
       }
     }
-    return sql.trim() + "\n";
-  }
+    function mermaidFromSchema(s){
+      let out="erDiagram\n";
+      (s.tables||[]).forEach(t=>{
+        out+=`  ${t.name} {\n`;
+        (t.fields||[]).forEach(f=>{ out+=`    ${f.type} ${f.name}${f.pk?" PK":""}\n`; });
+        out+="  }\n";
+      });
+      (s.relations||[]).forEach(r=>{
+        if(r.type==="1-1") out+=`  ${r.from} ||--|| ${r.to} : has\n`;
+        if(r.type==="1-N") out+=`  ${r.from} ||--o{ ${r.to} : has\n`;
+        if(r.type==="N-N") out+=`  ${r.from} }o--o{ ${r.to} : many\n`;
+      });
+      return out;
+    }
+    async function renderERD(s){
+      const code = mermaidFromSchema(s);
+      try{
+        const { svg } = await mermaid.render('erd_'+Date.now(), code);
+        document.getElementById('erd').innerHTML = svg;
+      }catch(e){
+        document.getElementById('erd').innerHTML = `<div class="sub">Erreur Mermaid : ${e}</div>`;
+      }
+    }
+    function renderAll(s){
+      // Relations + cards
+      renderRelBoard(s);
+      schemaEl.innerHTML="";
+      (s.tables||[]).forEach((t,i)=> schemaEl.appendChild(tableCard(t,i)));
+      // Previews + downloads
+      jsonOut.textContent = JSON.stringify(s, null, 2);
+      sqlOut.textContent  = ddlFromSchema(structuredClone(s));
+      dlJsonBtn.disabled=false; dlSqlBtn.disabled=false;
+      // ERD
+      renderERD(s);
+    }
 
-  let lastSchema = null;
+    /* ===== SQL DDL ===== */
+    function esc(x){ return String(x).replace(/[^a-zA-Z0-9_]/g,"_"); }
+    function ddlFromSchema(s){
+      const map = Object.fromEntries((s.tables||[]).map(t=>[t.name,t]));
+      let sql="PRAGMA foreign_keys = ON;\n\n";
+      (s.tables||[]).forEach(t=>{
+        const defs=[]; const uniqs=[];
+        (t.fields||[]).forEach(f=>{
+          const ps=[esc(f.name), f.type||"TEXT"];
+          if(f.pk) ps.push("PRIMARY KEY");
+          if(f.notnull) ps.push("NOT NULL");
+          if(f.unique) uniqs.push(esc(f.name));
+          if(f.default!=null) ps.push("DEFAULT "+String(f.default));
+          defs.push(ps.join(" "));
+        });
+        (t.fields||[]).forEach(f=>{
+          if(/_id$/.test(f.name)){
+            const base=f.name.replace(/_id$/,'');
+            const ref = [base, base+"s", base+"es"].find(x=>map[x]);
+            if(ref) defs.push(`FOREIGN KEY (${esc(f.name)}) REFERENCES ${esc(ref)}(id) ON DELETE CASCADE`);
+          }
+        });
+        uniqs.forEach(u=>defs.push(`UNIQUE (${u})`));
+        sql += `CREATE TABLE IF NOT EXISTS ${esc(t.name)} (\n  ${defs.join(",\n  ")}\n);\n\n`;
+      });
+      (s.relations||[]).forEach(r=>{ sql+=`-- relation ${r.type} : ${esc(r.from)} -> ${esc(r.to)}\n`; });
+      return sql.trim()+"\n";
+    }
 
-  goBtn.onclick = () => {
-    const brief = briefEl.value.trim();
-    if (!brief) return alert("Décris ton besoin 👇");
-    msg("Vous", brief);
-    msg("🤖", "Je prépare une proposition…");
+    /* ===== GENERATE FLOW ===== */
+    let lastSchema=null;
+    document.getElementById('go').onclick=()=>{
+      const brief = document.getElementById('brief').value.trim();
+      if(!brief) return alert("Décris ton besoin 👇");
+      msg(logEl,"Vous",brief);
+      msg(logEl,"🤖","Je prépare une proposition…");
+      setStatus("Génération…", 35);
+      setTimeout(()=> setStatus("Génération…", 70), 300);
 
-    const proposal = smartGenerate(brief);
-    lastSchema = proposal;
+      const s = smartGenerate(brief);
+      lastSchema = s;
+      msg(logEl,"🤖","🧠 " + s.rationale);
 
-    // Chat + cartes
-    schemaEl.innerHTML = "";
-    msg("🤖", "🧠 " + proposal.rationale);
-    proposal.tables.forEach((t,i)=> schemaEl.appendChild(createCard(t, colors[i%colors.length])));
+      resultSec.style.display = 'block';
+      refineSec.style.display = 'block';
+      renderAll(s);
 
-    // Prévisualisations
-    jsonOut.textContent = JSON.stringify(proposal, null, 2);
-    sqlOut.textContent  = ddlFromSchema(proposal);
+      setStatus("Prêt ✅", 100);
+      setTimeout(()=> (status.style.display='none'), 900);
+    };
 
-    // Activer les téléchargements
-    dlJsonBtn.disabled = false;
-    dlSqlBtn.disabled  = false;
-  };
+    /* ===== DOWNLOADS ===== */
+    dlJsonBtn.onclick=()=>{
+      if(!lastSchema) return;
+      const blob=new Blob([JSON.stringify(lastSchema,null,2)],{type:"application/json"});
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download="schema.json"; a.click();
+    };
+    dlSqlBtn.onclick=()=>{
+      if(!lastSchema) return;
+      const blob=new Blob([ddlFromSchema(structuredClone(lastSchema))],{type:"text/sql"});
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download="schema.sql"; a.click();
+    };
 
-  dlJsonBtn.onclick = () => {
-    if (!lastSchema) return;
-    const blob = new Blob([JSON.stringify(lastSchema, null, 2)], {type:"application/json"});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = "schema.json";
-    a.click();
-  };
+    /* ===== REFINEMENT PAR CHAT =====
+       Règles prises en charge (français simple) :
+       - ajoute table <nom>
+       - supprime table <nom>
+       - renomme table <a> en <b>
+       - ajoute (champ|colonne) <nom>( (TEXT|INTEGER|REAL|BOOLEAN|DATE|DATETIME))? dans <table> [unique] [pk] [not null]
+       - supprime (champ|colonne) <nom> de <table>
+       - renomme (champ|colonne) <a> de <table> en <b>
+       - relation (1-1|1-n|n-n) entre <a> et <b>
+       - type de <table>.<champ> en <TYPE>
+    */
+    function applyInstruction(text){
+      if(!lastSchema) return "Pas de schéma chargé.";
+      const s = lastSchema;
 
-  dlSqlBtn.onclick = () => {
-    if (!lastSchema) return;
-    const ddl = sqlOut.textContent || "";
-    const blob = new Blob([ddl], {type:"text/sql"});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = "schema.sql";
-    a.click();
-  };
-})();
-</script>
+      const w = (x)=>x && x.normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase();
+      const tok = w(text);
+
+      // relation
+      let m = /relation\s+(1[-\s]?1|1[-\s]?n|n[-\s]?n)\s+entre\s+([a-z0-9_]+)\s+et\s+([a-z0-9_]+)/i.exec(tok);
+      if(m){
+        const mapType = (t)=> t.startsWith('1-1')||t==='1 1' ? '1-1' : (t.startsWith('1') ? '1-N' : 'N-N');
+        const r = { type: mapType(m[1]), from:m[2], to:m[3] };
+        s.relations = s.relations||[];
+        s.relations.push(r);
+        return `✅ Relation ajoutée : ${r.type} ${r.from} → ${r.to}`;
+      }
+
+      // ajoute table
+      m = /(ajoute|cree|crée)\s+table\s+([a-z0-9_]+)/i.exec(tok);
+      if(m){
+        const name=m[2]; s.tables.push({name,fields:[pk()]});
+        return `✅ Table ajoutée : ${name}`;
+      }
+
+      // supprime table
+      m = /(supprime|enleve|enlève)\s+table\s+([a-z0-9_]+)/i.exec(tok);
+      if(m){
+        const name=m[2]; const idx=s.tables.findIndex(t=>w(t.name)===name);
+        if(idx>=0){ s.tables.splice(idx,1); s.relations=(s.relations||[]).filter(r=>r.from!==name && r.to!==name); return `🗑️ Table supprimée : ${name}`; }
+        return `❌ Table introuvable : ${name}`;
+      }
+
+      // renomme table
+      m = /(renomme|renommer)\s+table\s+([a-z0-9_]+)\s+en\s+([a-z0-9_]+)/i.exec(tok);
+      if(m){
+        const a=m[2], b=m[3]; const t=s.tables.find(t=>w(t.name)===a);
+        if(!t) return `❌ Table introuvable : ${a}`;
+        t.name=b; (s.relations||[]).forEach(r=>{ if(r.from===a) r.from=b; if(r.to===a) r.to=b; });
+        return `✏️ Table renommée : ${a} → ${b}`;
+      }
+
+      // ajoute champ
+      m = /(ajoute|cree|crée)\s+(?:champ|colonne)\s+([a-z0-9_]+)(?:\s*\((text|integer|real|boolean|date|datetime)\))?\s+dans\s+([a-z0-9_]+)(.*)$/i.exec(tok);
+      if(m){
+        const name=m[2]; const type=(m[3]||'TEXT').toUpperCase();
+        const tbl=m[4]; const flags=m[5]||"";
+        const t=s.tables.find(t=>w(t.name)===tbl); if(!t) return `❌ Table introuvable : ${tbl}`;
+        const f={name, type}; if(/unique/.test(flags)) f.unique=true; if(/\bpk\b|\bprimaire\b/.test(flags)) f.pk=true; if(/not\s?null/.test(flags)) f.notnull=true;
+        t.fields.push(f);
+        return `✅ Colonne ajoutée : ${tbl}.${name} (${type})` + (f.unique?' • unique':'') + (f.pk?' • PK':'') + (f.notnull?' • not null':'');
+      }
+
+      // supprime champ
+      m = /(supprime|enleve|enlève)\s+(?:champ|colonne)\s+([a-z0-9_]+)\s+de\s+([a-z0-9_]+)/i.exec(tok);
+      if(m){
+        const col=m[2], tbl=m[3];
+        const t=s.tables.find(t=>w(t.name)===tbl); if(!t) return `❌ Table introuvable : ${tbl}`;
+        const idx=t.fields.findIndex(f=>w(f.name)===col); if(idx<0) return `❌ Colonne introuvable : ${tbl}.${col}`;
+        t.fields.splice(idx,1); return `🗑️ Colonne supprimée : ${tbl}.${col}`;
+      }
+
+      // renomme champ
+      m = /(renomme|renommer)\s+(?:champ|colonne)\s+([a-z0-9_]+)\s+de\s+([a-z0-9_]+)\s+en\s+([a-z0-9_]+)/i.exec(tok);
+      if(m){
+        const a=m[2], tbl=m[3], b=m[4];
+        const t=s.tables.find(t=>w(t.name)===tbl); if(!t) return `❌ Table introuvable : ${tbl}`;
+        const f=t.fields.find(f=>w(f.name)===a); if(!f) return `❌ Colonne introuvable : ${tbl}.${a}`;
+        f.name=b; return `✏️ Colonne renommée : ${tbl}.${a} → ${b}`;
+      }
+
+      // set type
+      m = /(type|format)\s+de\s+([a-z0-9_]+)\.([a-z0-9_]+)\s+en\s+(text|integer|real|boolean|date|datetime)/i.exec(tok);
+      if(m){
+        const tbl=m[2], col=m[3], type=m[4].toUpperCase();
+        const t=s.tables.find(t=>w(t.name)===tbl); if(!t) return `❌ Table introuvable : ${tbl}`;
+        const f=t.fields.find(f=>w(f.name)===col); if(!f) return `❌ Colonne introuvable : ${tbl}.${col}`;
+        f.type=type; return `🔧 Type changé : ${tbl}.${col} → ${type}`;
+      }
+
+      // flags (unique / pk / not null)
+      m = /(rends?|mettre|set)\s+([a-z0-9_]+)\.([a-z0-9_]+).*\b(unique|pk|primaire|not\s?null)\b/i.exec(tok);
+      if(m){
+        const tbl=m[2], col=m[3], flag=m[4];
+        const t=s.tables.find(t=>w(t.name)===tbl); if(!t) return `❌ Table introuvable : ${tbl}`;
+        const f=t.fields.find(f=>w(f.name)===col); if(!f) return `❌ Colonne introuvable : ${tbl}.${col}`;
+        if(/unique/.test(flag)) f.unique=true;
+        else if(/pk|primaire/.test(flag)) f.pk=true;
+        else if(/not\s?null/.test(flag)) f.notnull=true;
+        return `✅ Flag appliqué : ${tbl}.${col} • ${flag}`;
+      }
+
+      return "Je n’ai pas compris. Exemples : « ajoute table stocks », « relation 1-N entre orders et order_items », « ajoute colonne email (TEXT) dans members unique ».";
+    }
+
+    document.getElementById('applyEdit').onclick=()=>{
+      const txt = document.getElementById('editInput').value.trim();
+      if(!txt) return;
+      msg(editLogEl,"Vous",txt);
+      const feedback = applyInstruction(txt);
+      msg(editLogEl,"🤖",feedback);
+      if(lastSchema){ renderAll(lastSchema); }
+      document.getElementById('editInput').value="";
+    };
+
+  })();
+  </script>
 </body>
 </html>
