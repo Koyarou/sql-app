@@ -7,181 +7,163 @@
 
   <style>
     :root{
-      --bg:#f8fafc;--panel:#ffffff;--muted:#f2f4f7;--txt:#0b0b0f;--sub:#64748b;--accent:#0ea5e9;--bd:#e5e7eb;--ok:#16a34a;--warn:#f59e0b;--r:14px
+      --bg:#f8fafc;--panel:#ffffff;--muted:#f2f4f7;--txt:#0b0b0f;--sub:#64748b;--accent:#0ea5e9;--bd:#e5e7eb;--ok:#16a34a;--warn:#f59e0b;--r:14px;
+      --shadow:0 6px 16px rgba(0,0,0,.10);
     }
     html[data-theme="dark"]{
-      --bg:#0b0b0b;--panel:#131313;--muted:#191919;--txt:#f7f7f7;--sub:#b7b7b7;--accent:#18a1ff;--bd:#242424
+      --bg:#0b0b0b;--panel:#131313;--muted:#191919;--txt:#f7f7f7;--sub:#b7b7b7;--accent:#18a1ff;--bd:#242424;--shadow:0 8px 20px rgba(0,0,0,.35);
     }
     *{box-sizing:border-box}
     html,body{height:100%}
     body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Arial,sans-serif}
-
-    /* Layout */
-    .wrap{max-width:1200px;margin:0 auto;padding:18px;display:grid;gap:14px}
-    @media (min-width: 980px){
-      .wrap{grid-template-columns: 2fr 1fr;}
-    }
-    .content{display:grid;gap:14px}
-    .card{background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);padding:14px}
+    .wrap{max-width:1100px;margin:0 auto;padding:18px;display:grid;gap:14px}
 
     .top{display:flex;justify-content:space-between;align-items:center}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+
     button{border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--txt);padding:9px 12px;cursor:pointer}
     button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+    button[disabled]{opacity:.6;cursor:not-allowed}
+
+    .card{background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);padding:14px;box-shadow:var(--shadow)}
     .stack{display:flex;flex-direction:column;gap:10px}
     .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
     .sub{font-size:13px;color:var(--sub)}
     h1{margin:0;font-size:20px}
     textarea{width:100%;min-height:110px;border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--txt);padding:10px}
 
+    /* Chat boxes */
     .chatlog{min-height:120px;border:1px solid var(--bd);border-radius:12px;padding:10px;background:var(--muted);overflow:auto}
     .msg{margin:0 0 10px}
     .who{font-size:12px;color:var(--sub);margin-bottom:2px}
-    .bubble{background:var(--panel);border:1px solid var(--bd);padding:8px;border-radius:10px}
+    .bubble{background:rgba(0,0,0,.04);border:1px solid var(--bd);padding:8px;border-radius:10px}
+    html[data-theme="dark"] .bubble{background:rgba(255,255,255,.04)}
 
-    /* Table cards */
+    /* Step reveal */
+    .step{opacity:0;transform:translateY(6px);transition:opacity .25s ease, transform .25s ease}
+    .step.show{opacity:1;transform:none}
+
+    /* Table grid */
     .schema{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:6px}
-    .table-card{border-radius:12px;padding:12px 14px;background:var(--panel);border:1px solid var(--bd);box-shadow:0 6px 16px rgba(0,0,0,.10);animation:pop .25s ease}
+    .table-card{border-radius:12px;padding:12px 14px;background:var(--panel);border:1px solid var(--bd);box-shadow:var(--shadow);animation:pop .25s ease}
     .table-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
     .dot{width:10px;height:10px;border-radius:50%}
     .table-card h3{margin:0;font-size:16px}
     .table-card ul{margin:8px 0 0;padding-left:16px}
-    .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;font-size:12px;border:1px solid var(--bd);background:var(--muted);margin:2px 4px 0 0}
 
-    /* Relations board */
+    /* Relations pills */
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;font-size:12px;border:1px solid var(--bd);background:rgba(0,0,0,.04);margin:2px 4px 0 0}
+    html[data-theme="dark"] .pill{background:rgba(255,255,255,.06)}
     .relboard{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0}
-    .rel-11{background:#e9d5ff;border-color:#c4b5fd}
-    .rel-1n{background:#dbeafe;border-color:#93c5fd}
-    .rel-nn{background:#dcfce7;border-color:#86efac}
+    .rel-11{background:#e9d5ff}
+    .rel-1n{background:#dbeafe}
+    .rel-nn{background:#dcfce7}
 
-    /* Mermaid box */
-    .erd{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:10px;overflow:auto}
-    .erd .placeholder{font-size:13px;color:var(--sub)}
+    /* Mermaid */
+    .erd{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:10px;overflow:auto;min-height:80px}
 
-    /* Downloads & previews */
+    /* Previews/downloads */
     .downloads{display:flex;gap:8px;flex-wrap:wrap}
-    pre.preview{white-space:pre-wrap;background:var(--muted);border:1px solid var(--bd);padding:10px;border-radius:12px;max-height:320px;overflow:auto}
+    pre.preview{white-space:pre-wrap;background:rgba(0,0,0,.04);border:1px solid var(--bd);padding:10px;border-radius:12px;max-height:320px;overflow:auto}
+    html[data-theme="dark"] pre.preview{background:rgba(255,255,255,.06)}
 
     /* Status bar */
-    #status{position:fixed;left:16px;right:16px;bottom:16px;max-width:560px;margin:0 auto;background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:10px;display:none;z-index:5}
-    #barWrap{height:10px;background:var(--muted);border-radius:7px;overflow:hidden}
+    #status{position:fixed;left:16px;right:16px;bottom:16px;max-width:640px;margin:0 auto;background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:10px;display:none;z-index:5;box-shadow:var(--shadow)}
+    #barWrap{height:10px;background:rgba(0,0,0,.07);border-radius:7px;overflow:hidden}
+    html[data-theme="dark"] #barWrap{background:rgba(255,255,255,.08)}
     #bar{height:10px;background:var(--accent);width:0%;transition:width .2s}
 
-    /* Stage-by-stage reveal */
-    .stage{opacity:0;transform:translateY(6px);transition:opacity .25s ease, transform .25s ease}
-    .stage.show{opacity:1;transform:none}
-
-    /* Skeletons (simple) */
-    .skel{border-radius:8px;background:linear-gradient(90deg, var(--muted) 25%, rgba(0,0,0,0.05) 37%, var(--muted) 63%);background-size:400% 100%;animation:shimmer 1.2s ease-in-out infinite}
-    .skel.line{height:12px;margin:6px 0}
-    .skel.box{height:120px}
-    @keyframes shimmer{0%{background-position:100% 0}100%{background-position:0 0}}
-
     /* History */
-    #historyList{display:flex;flex-direction:column;gap:8px;max-height:520px;overflow:auto}
-    .histItem{border:1px solid var(--bd);border-radius:10px;padding:8px;cursor:pointer;background:var(--panel)}
-    .histItem:hover{outline:2px solid var(--accent);outline-offset:0}
-    .histHead{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--sub)}
-    .histTitle{font-weight:600}
-    .histMeta{font-size:12px;color:var(--sub)}
-    .muted{color:var(--sub)}
+    #historyList{display:grid;gap:8px}
+    .snap{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--bd);border-radius:10px;padding:8px;background:var(--panel)}
+
     @keyframes pop{from{transform:scale(.96);opacity:.0}to{transform:scale(1);opacity:1}}
   </style>
+
+  <!-- Mermaid (defer) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 </head>
 <body>
   <div class="wrap">
-    <div class="content">
-      <div class="card top">
-        <div><strong>DB Chat</strong> — brief → cartes & relations → ERD → export</div>
-        <div class="row">
-          <button id="theme">🌓 Thème</button>
-          <button id="reset">↺ Reset</button>
-        </div>
+    <div class="top">
+      <div><strong>DB Chat</strong> — brief → cartes & relations → ERD → export</div>
+      <div class="actions">
+        <button id="reset">↺ Reset</button>
+        <button id="theme">🌓 Thème</button>
       </div>
-
-      <!-- Étape 1 : Chat brief -->
-      <section class="card stack stage" id="stepBrief">
-        <div>
-          <h1>Assistant base de données</h1>
-          <div class="sub">Décris ton besoin (ex. « asso de basket : équipes, joueurs, matchs, cotisations »). Je propose un schéma + logique métier.</div>
-        </div>
-        <div class="row" id="quick">
-          <button data-prompt="CRM : entreprises, contacts, opportunités, activités.">CRM</button>
-          <button data-prompt="E-commerce : clients, produits, commandes, lignes, paiements.">E-commerce</button>
-          <button data-prompt="Médiathèque : lecteurs, ouvrages, emprunts, retours, pénalités.">Médiathèque</button>
-          <button data-prompt="Asso de basket : équipes, joueurs, matchs, cotisations.">Asso de basket</button>
-        </div>
-        <textarea id="brief" placeholder="Ex : « Base de données pour une asso de basket (équipes, joueurs, matchs, cotisations) »"></textarea>
-        <div class="row">
-          <button class="primary" id="go">Proposer un schéma</button>
-          <button id="clear">Effacer</button>
-        </div>
-        <div class="chatlog" id="log" aria-live="polite"></div>
-      </section>
-
-      <!-- Étape 2 : Résultats -->
-      <section class="card stack stage" id="result" style="display:none">
-        <div class="row" style="justify-content:space-between;align-items:center">
-          <div><strong>Schéma proposé</strong> <span class="sub">— cartes, relations &amp; ERD</span></div>
-          <div class="downloads">
-            <button id="dlJson" disabled>Télécharger JSON</button>
-            <button id="dlSql"  disabled>Télécharger SQL</button>
-          </div>
-        </div>
-
-        <!-- skeleton pendant génération -->
-        <div id="skels">
-          <div class="skel line" style="width:50%"></div>
-          <div class="skel box"></div>
-        </div>
-
-        <!-- Relations lisibles -->
-        <div id="relBoard" class="relboard" style="display:none"></div>
-
-        <!-- Cartes Tables -->
-        <div id="schema" class="schema" style="display:none"></div>
-
-        <!-- ERD Mermaid -->
-        <details id="erdWrap" style="display:none">
-          <summary>Diagramme entité-relation (ERD)</summary>
-          <div id="erd" class="erd"><div class="placeholder">Chargement du diagramme…</div></div>
-        </details>
-
-        <!-- Prévisualisations -->
-        <details style="display:none" id="jsonWrap">
-          <summary>Voir le JSON</summary>
-          <pre id="jsonOut" class="preview">—</pre>
-        </details>
-        <details style="display:none" id="sqlWrap">
-          <summary>Voir le SQL</summary>
-          <pre id="sqlOut" class="preview">—</pre>
-        </details>
-      </section>
-
-      <!-- Étape 3 : Affinage par chat -->
-      <section class="card stack stage" id="refine" style="display:none">
-        <div>
-          <strong>Affiner par chat</strong>
-          <div class="sub">Exemples : “ajoute colonne <b>email</b> (TEXT) dans <b>members</b> unique” · “relation <b>N-N</b> entre <b>teams</b> et <b>members</b>” · “supprime table <b>payments</b>”.</div>
-        </div>
-        <div class="row">
-          <input id="editInput" placeholder="Écris une consigne (français naturel)" style="flex:1; padding:10px; border:1px solid var(--bd); border-radius:10px; background:transparent; color:var(--txt)"/>
-          <button class="primary" id="applyEdit">Appliquer</button>
-        </div>
-        <div class="chatlog" id="editLog" aria-live="polite"></div>
-      </section>
     </div>
 
-    <!-- Panneau Historique -->
-    <aside class="card stage" id="historyPanel">
-      <div class="top">
-        <div><strong>Historique</strong> <span class="sub">— snapshots restaurables</span></div>
-        <div class="row">
-          <button id="histClear">Vider</button>
+    <!-- Étape 1 : Brief -->
+    <section class="card stack step show" id="step-brief">
+      <div>
+        <h1>Assistant base de données</h1>
+        <div class="sub">Décris ton besoin (ex. « asso de basket : équipes, joueurs, matchs, cotisations »). Je propose un schéma + logique métier.</div>
+      </div>
+
+      <div class="row" id="quick">
+        <button data-prompt="CRM : entreprises, contacts, opportunités, activités.">CRM</button>
+        <button data-prompt="E-commerce : clients, produits, commandes, lignes, paiements.">E-commerce</button>
+        <button data-prompt="Médiathèque : lecteurs, ouvrages, emprunts, retours, pénalités.">Médiathèque</button>
+        <button data-prompt="Asso de basket : équipes, joueurs, matchs, cotisations.">Asso de basket</button>
+      </div>
+
+      <textarea id="brief" placeholder="Ex : « Base de données pour une asso de basket (équipes, joueurs, matchs, cotisations) »"></textarea>
+      <div class="row">
+        <button class="primary" id="go">Proposer un schéma</button>
+        <button id="clear">Effacer</button>
+      </div>
+      <div class="chatlog" id="log" aria-live="polite"></div>
+    </section>
+
+    <!-- Étape 2 : Résultat -->
+    <section class="card stack step" id="result">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div><strong>Schéma proposé</strong> <span class="sub">— cartes, relations & ERD</span></div>
+        <div class="downloads">
+          <button id="dlJson" disabled>Télécharger JSON</button>
+          <button id="dlSql"  disabled>Télécharger SQL</button>
         </div>
       </div>
-      <div id="historyList"></div>
-      <div class="sub muted" id="histEmpty">Aucun snapshot pour l’instant.</div>
-    </aside>
+
+      <div id="relBoard" class="relboard"></div>
+      <div id="schema" class="schema"></div>
+
+      <details open>
+        <summary>Diagramme entité-relation (ERD)</summary>
+        <div id="erd" class="erd"><span class="sub">Chargement du diagramme…</span></div>
+      </details>
+
+      <details>
+        <summary>Voir le JSON</summary>
+        <pre id="jsonOut" class="preview">—</pre>
+      </details>
+      <details>
+        <summary>Voir le SQL</summary>
+        <pre id="sqlOut" class="preview">—</pre>
+      </details>
+    </section>
+
+    <!-- Étape 3 : Affinage -->
+    <section class="card stack step" id="refine">
+      <div>
+        <strong>Affiner par chat</strong>
+        <div class="sub">Exemples : “ajoute colonne <b>email</b> (TEXT) dans <b>members</b> unique” · “relation <b>N-N</b> entre <b>teams</b> et <b>members</b>” · “supprime table <b>payments</b>”.</div>
+      </div>
+      <div class="row">
+        <input id="editInput" placeholder="Écris une consigne (français naturel)" style="flex:1; padding:10px; border:1px solid var(--bd); border-radius:10px; background:transparent; color:var(--txt)"/>
+        <button class="primary" id="applyEdit">Appliquer</button>
+      </div>
+      <div class="chatlog" id="editLog" aria-live="polite"></div>
+    </section>
+
+    <!-- Historique -->
+    <section class="card stack step" id="history">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <strong>Historique — snapshots restaurables</strong>
+        <button id="clearHistory">Vider</button>
+      </div>
+      <div id="historyList" class="sub">Aucun snapshot pour l’instant.</div>
+    </section>
   </div>
 
   <!-- Barre d’état -->
@@ -194,25 +176,32 @@
   </div>
 
   <script>
-  (function(){
+  // Tout s’attache après que le DOM est prêt et (si possible) Mermaid chargé
+  window.addEventListener('DOMContentLoaded', () => {
     /* ===== THEME ===== */
     const root=document.documentElement;
     const saved=localStorage.getItem('theme'); if(saved) root.setAttribute('data-theme', saved);
-    document.getElementById('theme').onclick=()=>{
+    const themeBtn = document.getElementById('theme');
+    themeBtn.addEventListener('click',() => {
       const cur=root.getAttribute('data-theme')||'light';
       const next=cur==='dark'?'light':'dark';
       root.setAttribute('data-theme',next);
       localStorage.setItem('theme',next);
       if (window.mermaid) {
-        try{ mermaid.initialize({ startOnLoad:false, theme:(next==='dark'?'dark':'default') }); }catch(e){}
+        window.mermaid.initialize({ startOnLoad:false, theme: (next==='dark'?'dark':'default') });
+        if (lastSchema) renderERD(lastSchema); // re-thème ERD
       }
-      if (lastSchema) renderERD(lastSchema); // re-thème ERD
-    };
+    });
 
-    /* ===== STAGING (apparition séquentielle) ===== */
-    const stages=[ 'stepBrief','result','refine','historyPanel' ].map(id=>document.getElementById(id));
-    function reveal(el, delay=0){ setTimeout(()=>{ el.classList.add('show'); }, delay); }
-    stages.forEach((el,i)=>reveal(el, 60*i)); // reveal initial (brief + history)
+    const resetBtn = document.getElementById('reset');
+    resetBtn.addEventListener('click',() => {
+      lastSchema=null;
+      document.getElementById('log').innerHTML='';
+      document.getElementById('editLog').innerHTML='';
+      document.getElementById('brief').value='';
+      hideStep('result'); hideStep('refine');
+      setStatus('Réinitialisé.', 100); setTimeout(()=>statusBox.style.display='none', 600);
+    });
 
     /* ===== ELEMENTS ===== */
     const logEl = document.getElementById('log');
@@ -221,28 +210,22 @@
     const relBoardEl = document.getElementById('relBoard');
     const jsonOut = document.getElementById('jsonOut');
     const sqlOut = document.getElementById('sqlOut');
-    const resultSec = document.getElementById('result');
-    const refineSec = document.getElementById('refine');
     const dlJsonBtn = document.getElementById('dlJson');
     const dlSqlBtn  = document.getElementById('dlSql');
-    const skels = document.getElementById('skels');
-    const erdWrap = document.getElementById('erdWrap');
-    const jsonWrap = document.getElementById('jsonWrap');
-    const sqlWrap = document.getElementById('sqlWrap');
 
     /* ===== STATUS BAR ===== */
-    const status = document.getElementById('status');
+    const statusBox = document.getElementById('status');
     const statMsg = document.getElementById('statMsg');
     const bar = document.getElementById('bar');
-    document.getElementById('statClose').onclick=()=> status.style.display='none';
-    let statusTimer=null;
+    document.getElementById('statClose').onclick=()=> statusBox.style.display='none';
     function setStatus(text, p){
-      status.style.display='block';
-      statMsg.textContent=text;
+      statusBox.style.display='block'; statMsg.textContent=text;
       if(typeof p==='number'){ bar.style.width=(Math.max(0,Math.min(100,p)))+'%'; }
-      if(statusTimer) clearTimeout(statusTimer);
-      statusTimer=setTimeout(()=>{ status.style.display='none'; }, 2500);
     }
+
+    /* ===== STEP REVEAL ===== */
+    function showStep(id){ const el=document.getElementById(id); el.classList.add('show'); }
+    function hideStep(id){ const el=document.getElementById(id); el.classList.remove('show'); }
 
     /* ===== CHAT HELPERS ===== */
     function msg(container, who, html){
@@ -250,62 +233,18 @@
       d.innerHTML=`<div class="who">${who}</div><div class="bubble">${html}</div>`;
       container.appendChild(d); container.scrollTop=container.scrollHeight;
     }
+
     document.getElementById('quick').addEventListener('click',(e)=>{
       const b=e.target.closest('button[data-prompt]'); if(!b) return;
       document.getElementById('brief').value=b.getAttribute('data-prompt');
     });
     document.getElementById('clear').onclick=()=> (logEl.innerHTML='');
-    document.getElementById('reset').onclick=()=>{
-      localStorage.removeItem('dbchat_last');
-      setStatus('Réinitialisé.', 100);
-      location.reload();
-    };
-
-    /* ===== HISTORY ===== */
-    const histList = document.getElementById('historyList');
-    const histEmpty = document.getElementById('histEmpty');
-    document.getElementById('histClear').onclick=()=>{
-      localStorage.removeItem('dbchat_history');
-      renderHistory();
-    };
-    function getHistory(){
-      try{ return JSON.parse(localStorage.getItem('dbchat_history')||'[]'); }catch(e){ return []; }
-    }
-    function pushHistory(entry){
-      const arr=getHistory();
-      arr.unshift(entry);
-      localStorage.setItem('dbchat_history', JSON.stringify(arr.slice(0,30)));
-      renderHistory();
-    }
-    function renderHistory(){
-      const arr=getHistory();
-      histList.innerHTML='';
-      histEmpty.style.display = arr.length? 'none':'block';
-      arr.forEach((h,idx)=>{
-        const it=document.createElement('div');
-        it.className='histItem';
-        it.innerHTML = `
-          <div class="histHead">
-            <div class="histTitle">${h.title||'Snapshot'}</div>
-            <div class="histMeta">${new Date(h.time).toLocaleString()}</div>
-          </div>
-          <div class="sub" style="margin-top:4px">${(h.brief||'—').slice(0,120)}</div>
-        `;
-        it.onclick=()=>{
-          lastSchema = h.schema;
-          msg(logEl,'🤖','🔁 Snapshot restauré.');
-          resultSec.style.display='block';
-          refineSec.style.display='block';
-          showResults(h.schema);
-        };
-        histList.appendChild(it);
-      });
-    }
-    renderHistory();
 
     /* ===== SMART GENERATE (sans LLM) ===== */
     function smartGenerate(brief){
       const b=(brief||'').toLowerCase();
+      const has = (re)=> re.test(b);
+
       if(/\brh\b|employ|collaborateur|salari/.test(b)){
         return {
           rationale:"Chaque salarié appartient à un service ; contrats historisés.",
@@ -353,7 +292,7 @@
       };
     }
 
-    /* Field constructors + clone fallback */
+    /* Field constructors */
     const pk   =(name="id")=>({name, type:"INTEGER", pk:true, unique:true, notnull:true, default:null});
     const t    =name=>({name, type:"TEXT"});
     const i    =name=>({name, type:"INTEGER"});
@@ -362,7 +301,6 @@
     const dt   =name=>({name, type:"DATETIME"});
     const b    =name=>({name, type:"BOOLEAN"});
     const uniq =(name, type="TEXT")=>({name, type, unique:true});
-    const jclone = (obj)=> (typeof structuredClone==='function' ? structuredClone(obj) : JSON.parse(JSON.stringify(obj)));
 
     /* ===== RENDER ===== */
     function color(i){ return ["#1e90ff","#16a34a","#f59e0b","#ec4899","#8b5cf6","#06b6d4","#22c55e"][i%7]; }
@@ -406,33 +344,30 @@
       });
       return out;
     }
-
-    async function loadMermaid(){
-      if (window.mermaid) return true;
-      return new Promise((res)=>{
-        const s=document.createElement('script');
-        s.src='https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
-        s.onload=()=>{ try{ mermaid.initialize({ startOnLoad:false, theme:(root.getAttribute('data-theme')==='dark'?'dark':'default') }); }catch(e){} res(true); };
-        s.onerror=()=>{ res(false); };
-        document.head.appendChild(s);
-      });
-    }
-
     async function renderERD(s){
-      const ok = await loadMermaid();
-      const erdEl = document.getElementById('erd');
-      if(!ok || !window.mermaid){
-        erdEl.innerHTML = `<div class="placeholder">Impossible de charger Mermaid (CDN). Aperçu texte :<br><pre class="preview">${mermaidFromSchema(s)}</pre></div>`;
-        return;
-      }
+      const erd=document.getElementById('erd');
+      if(!window.mermaid){ erd.innerHTML = `<div class="sub">Mermaid indisponible (CDN). Le reste de l’app fonctionne.</div>`; return; }
       try{
-        const { svg } = await mermaid.render('erd_'+Date.now(), mermaidFromSchema(s));
-        erdEl.innerHTML = svg;
+        const code = mermaidFromSchema(s);
+        const { svg } = await window.mermaid.render('erd_'+Date.now(), code);
+        erd.innerHTML = svg;
       }catch(e){
-        erdEl.innerHTML = `<div class="placeholder">Erreur Mermaid : ${String(e).slice(0,140)}</div>`;
+        erd.innerHTML = `<div class="sub">Erreur Mermaid : ${String(e)}</div>`;
       }
     }
+    function safeClone(obj){ return JSON.parse(JSON.stringify(obj)); }
+    function renderAll(s){
+      renderRelBoard(s);
+      schemaEl.innerHTML="";
+      (s.tables||[]).forEach((t,i)=> schemaEl.appendChild(tableCard(t,i)));
+      jsonOut.textContent = JSON.stringify(s, null, 2);
+      sqlOut.textContent  = ddlFromSchema(safeClone(s));
+      dlJsonBtn.disabled=false; dlSqlBtn.disabled=false;
+      renderERD(s);
+    }
 
+    /* ===== SQL DDL ===== */
+    function esc(x){ return String(x).replace(/[^a-zA-Z0-9_]/g,"_"); }
     function ddlFromSchema(s){
       const map = Object.fromEntries((s.tables||[]).map(t=>[t.name,t]));
       let sql="PRAGMA foreign_keys = ON;\n\n";
@@ -459,8 +394,211 @@
       (s.relations||[]).forEach(r=>{ sql+=`-- relation ${r.type} : ${esc(r.from)} -> ${esc(r.to)}\n`; });
       return sql.trim()+"\n";
     }
-    function esc(x){ return String(x).replace(/[^a-zA-Z0-9_]/g,"_"); }
 
-    function showResults(s){
-      // skeleton -> vra
+    /* ===== GENERATE FLOW ===== */
+    let lastSchema=null;
+    const goBtn = document.getElementById('go');
+    goBtn.addEventListener('click',()=>{
+      const brief = document.getElementById('brief').value.trim();
+      if(!brief) { alert("Décris ton besoin 👇"); return; }
+      goBtn.disabled = true;
 
+      msg(logEl,"Vous",brief);
+      msg(logEl,"🤖","Je prépare une proposition…");
+
+      setStatus("Analyse du brief…", 15);
+      setTimeout(()=> setStatus("Génération des tables…", 45), 300);
+      setTimeout(()=> setStatus("Détection des relations…", 70), 600);
+
+      const s = smartGenerate(brief);
+      lastSchema = s;
+
+      setTimeout(()=>{
+        msg(logEl,"🤖","🧠 " + s.rationale);
+        showStep('result');
+        renderAll(s);
+        setStatus("Préparation de l'ERD…", 85);
+      }, 800);
+
+      setTimeout(()=>{
+        showStep('refine');
+        showStep('history');
+        pushSnapshot(s); // première version
+        setStatus("Prêt ✅", 100);
+        setTimeout(()=> (statusBox.style.display='none'), 900);
+        goBtn.disabled = false;
+      }, 1100);
+    });
+
+    /* ===== DOWNLOADS ===== */
+    dlJsonBtn.onclick=()=>{
+      if(!lastSchema) return;
+      const blob=new Blob([JSON.stringify(lastSchema,null,2)],{type:"application/json"});
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download="schema.json"; a.click();
+    };
+    dlSqlBtn.onclick=()=>{
+      if(!lastSchema) return;
+      const blob=new Blob([ddlFromSchema(safeClone(lastSchema))],{type:"text/sql"});
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download="schema.sql"; a.click();
+    };
+
+    /* ===== REFINEMENT PAR CHAT =====
+       Phrases supportées :
+       - ajoute table <nom>
+       - supprime table <nom>
+       - renomme table <a> en <b>
+       - ajoute (champ|colonne) <nom>( (TEXT|INTEGER|REAL|BOOLEAN|DATE|DATETIME))? dans <table> [unique] [pk] [not null]
+       - supprime (champ|colonne) <nom> de <table>
+       - renomme (champ|colonne) <a> de <table> en <b>
+       - relation (1-1|1-n|n-n) entre <a> et <b>
+       - type de <table>.<champ> en <TYPE>
+    */
+    // normalisation sans \p{Diacritic}
+    function w(x){
+      return x && x.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    }
+    function applyInstruction(text){
+      if(!lastSchema) return "Pas de schéma chargé.";
+      const s = lastSchema;
+      const tok = w(text);
+
+      // relation
+      let m = /relation\s+(1[-\s]?1|1[-\s]?n|n[-\s]?n)\s+entre\s+([a-z0-9_]+)\s+et\s+([a-z0-9_]+)/i.exec(tok);
+      if(m){
+        const mapType = (t)=> t.indexOf('1-1')===0 || t==='1 1' ? '1-1' : (t.indexOf('1')===0 ? '1-N' : 'N-N');
+        const r = { type: mapType(m[1]), from:m[2], to:m[3] };
+        s.relations = s.relations||[];
+        s.relations.push(r);
+        return `✅ Relation ajoutée : ${r.type} ${r.from} → ${r.to}`;
+      }
+
+      // ajoute table
+      m = /(ajoute|cree|crée)\s+table\s+([a-z0-9_]+)/i.exec(tok);
+      if(m){
+        const name=m[2]; s.tables.push({name,fields:[pk()]});
+        return `✅ Table ajoutée : ${name}`;
+      }
+
+      // supprime table
+      m = /(supprime|enleve|enlève)\s+table\s+([a-z0-9_]+)/i.exec(tok);
+      if(m){
+        const name=m[2]; const idx=s.tables.findIndex(t=>w(t.name)===name);
+        if(idx>=0){ s.tables.splice(idx,1); s.relations=(s.relations||[]).filter(r=>r.from!==name && r.to!==name); return `🗑️ Table supprimée : ${name}`; }
+        return `❌ Table introuvable : ${name}`;
+      }
+
+      // renomme table
+      m = /(renomme|renommer)\s+table\s+([a-z0-9_]+)\s+en\s+([a-z0-9_]+)/i.exec(tok);
+      if(m){
+        const a=m[2], b=m[3]; const t=s.tables.find(t=>w(t.name)===a);
+        if(!t) return `❌ Table introuvable : ${a}`;
+        t.name=b; (s.relations||[]).forEach(r=>{ if(r.from===a) r.from=b; if(r.to===a) r.to=b; });
+        return `✏️ Table renommée : ${a} → ${b}`;
+      }
+
+      // ajoute champ
+      m = /(ajoute|cree|crée)\s+(?:champ|colonne)\s+([a-z0-9_]+)(?:\s*\((text|integer|real|boolean|date|datetime)\))?\s+dans\s+([a-z0-9_]+)(.*)$/i.exec(tok);
+      if(m){
+        const name=m[2]; const type=(m[3]||'TEXT').toUpperCase();
+        const tbl=m[4]; const flags=m[5]||"";
+        const t=s.tables.find(t=>w(t.name)===tbl); if(!t) return `❌ Table introuvable : ${tbl}`;
+        const f={name, type}; if(/unique/.test(flags)) f.unique=true; if(/\bpk\b|\bprimaire\b/.test(flags)) f.pk=true; if(/not\s?null/.test(flags)) f.notnull=true;
+        t.fields.push(f);
+        return `✅ Colonne ajoutée : ${tbl}.${name} (${type})` + (f.unique?' • unique':'') + (f.pk?' • PK':'') + (f.notnull?' • not null':'');
+      }
+
+      // supprime champ
+      m = /(supprime|enleve|enlève)\s+(?:champ|colonne)\s+([a-z0-9_]+)\s+de\s+([a-z0-9_]+)/i.exec(tok);
+      if(m){
+        const col=m[2], tbl=m[3];
+        const t=s.tables.find(t=>w(t.name)===tbl); if(!t) return `❌ Table introuvable : ${tbl}`;
+        const idx=t.fields.findIndex(f=>w(f.name)===col); if(idx<0) return `❌ Colonne introuvable : ${tbl}.${col}`;
+        t.fields.splice(idx,1); return `🗑️ Colonne supprimée : ${tbl}.${col}`;
+      }
+
+      // renomme champ
+      m = /(renomme|renommer)\s+(?:champ|colonne)\s+([a-z0-9_]+)\s+de\s+([a-z0-9_]+)\s+en\s+([a-z0-9_]+)/i.exec(tok);
+      if(m){
+        const a=m[2], tbl=m[3], b=m[4];
+        const t=s.tables.find(t=>w(t.name)===tbl); if(!t) return `❌ Table introuvable : ${tbl}`;
+        const f=t.fields.find(f=>w(f.name)===a); if(!f) return `❌ Colonne introuvable : ${tbl}.${a}`;
+        f.name=b; return `✏️ Colonne renommée : ${tbl}.${a} → ${b}`;
+      }
+
+      // set type
+      m = /(type|format)\s+de\s+([a-z0-9_]+)\.([a-z0-9_]+)\s+en\s+(text|integer|real|boolean|date|datetime)/i.exec(tok);
+      if(m){
+        const tbl=m[2], col=m[3], type=m[4].toUpperCase();
+        const t=s.tables.find(t=>w(t.name)===tbl); if(!t) return `❌ Table introuvable : ${tbl}`;
+        const f=t.fields.find(f=>w(f.name)===col); if(!f) return `❌ Colonne introuvable : ${tbl}.${col}`;
+        f.type=type; return `🔧 Type changé : ${tbl}.${col} → ${type}`;
+      }
+
+      // flags (unique / pk / not null)
+      m = /(rends?|mettre|set)\s+([a-z0-9_]+)\.([a-z0-9_]+).*\b(unique|pk|primaire|not\s?null)\b/i.exec(tok);
+      if(m){
+        const tbl=m[2], col=m[3], flag=m[4];
+        const t=s.tables.find(t=>w(t.name)===tbl); if(!t) return `❌ Table introuvable : ${tbl}`;
+        const f=t.fields.find(f=>w(f.name)===col); if(!f) return `❌ Colonne introuvable : ${tbl}.${col}`;
+        if(/unique/.test(flag)) f.unique=true;
+        else if(/pk|primaire/.test(flag)) f.pk=true;
+        else if(/not\s?null/.test(flag)) f.notnull=true;
+        return `✅ Flag appliqué : ${tbl}.${col} • ${flag}`;
+      }
+
+      return "Je n’ai pas compris. Exemples : « ajoute table stocks », « relation 1-N entre orders et order_items », « ajoute colonne email (TEXT) dans members unique ».";
+    }
+
+    document.getElementById('applyEdit').onclick=()=>{
+      const txt = document.getElementById('editInput').value.trim();
+      if(!txt) return;
+      msg(editLogEl,"Vous",txt);
+      const feedback = applyInstruction(txt);
+      msg(editLogEl,"🤖",feedback);
+      if(lastSchema){ renderAll(lastSchema); pushSnapshot(lastSchema); }
+      document.getElementById('editInput').value="";
+    };
+
+    /* ===== HISTORIQUE ===== */
+    const historyKey = "dbchat_history_v1";
+    const historyListEl = document.getElementById('historyList');
+    document.getElementById('clearHistory').onclick=()=>{
+      localStorage.removeItem(historyKey);
+      renderHistory();
+    };
+    function getHistory(){ try{ return JSON.parse(localStorage.getItem(historyKey)||"[]"); }catch(_){ return []; } }
+    function setHistory(arr){ localStorage.setItem(historyKey, JSON.stringify(arr.slice(-20))); }
+    function pushSnapshot(s){
+      const arr=getHistory();
+      arr.push({ts:Date.now(), schema:safeClone(s)});
+      setHistory(arr); renderHistory();
+    }
+    function renderHistory(){
+      const arr=getHistory();
+      historyListEl.innerHTML='';
+      if(!arr.length){ historyListEl.textContent="Aucun snapshot pour l’instant."; return; }
+      arr.slice().reverse().forEach((snap,idx)=>{
+        const d=new Date(snap.ts);
+        const el=document.createElement('div'); el.className='snap';
+        el.innerHTML = `<span class="sub">${d.toLocaleString()} — ${ (snap.schema.tables||[]).length } tables</span>`;
+        const btn=document.createElement('button'); btn.textContent="Restaurer";
+        btn.onclick=()=>{
+          lastSchema = safeClone(snap.schema);
+          showStep('result'); showStep('refine'); showStep('history');
+          renderAll(lastSchema);
+          setStatus("Snapshot restauré.", 100); setTimeout(()=>statusBox.style.display='none', 700);
+        };
+        el.appendChild(btn);
+        historyListEl.appendChild(el);
+      });
+    }
+    renderHistory();
+
+    // Initialise Mermaid si dispo après chargement
+    if (window.mermaid) {
+      window.mermaid.initialize({ startOnLoad:false, theme: (root.getAttribute('data-theme')==='dark'?'dark':'default') });
+    }
+  });
+  </script>
+</body>
+</html>
