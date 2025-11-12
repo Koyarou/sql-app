@@ -6,8 +6,13 @@
   <title>DB Chat — Schéma SQL ludique</title>
 
   <style>
-    :root{ --bg:#f8fafc;--panel:#ffffff;--muted:#f2f4f7;--txt:#0b0b0f;--sub:#64748b;--accent:#0ea5e9;--bd:#e5e7eb;--ok:#16a34a;--warn:#f59e0b;--r:14px }
-    html[data-theme="dark"]{ --bg:#0b0b0b;--panel:#131313;--muted:#191919;--txt:#f7f7f7;--sub:#b7b7b7;--accent:#18a1ff;--bd:#242424 }
+    :root{
+      --bg:#f8fafc;--panel:#ffffff;--muted:#f2f4f7;--txt:#0b0b0f;--sub:#64748b;--accent:#0ea5e9;--bd:#e5e7eb;
+      --ok:#16a34a;--warn:#f59e0b;--r:14px
+    }
+    html[data-theme="dark"]{
+      --bg:#0b0b0b;--panel:#131313;--muted:#191919;--txt:#f7f7f7;--sub:#b7b7b7;--accent:#18a1ff;--bd:#242424
+    }
     *{box-sizing:border-box}
     html,body{height:100%}
     body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Arial,sans-serif}
@@ -76,8 +81,8 @@
     <div class="top">
       <div><strong>DB Chat</strong> — brief → cartes & relations → ERD → export</div>
       <div class="cta">
-        <button id="reset">↺ Reset</button>
-        <button id="theme">🌓 Thème</button>
+        <button id="reset" title="Réinitialiser l’app (cache local)">↺ Reset</button>
+        <button id="theme" title="Basculer clair/sombre">🌓 Thème</button>
       </div>
     </div>
 
@@ -141,7 +146,12 @@
     <section class="card stack" id="refine" data-step style="display:none">
       <div>
         <strong>Affiner par chat</strong>
-        <div class="sub">Exemples : “ajoute colonne <b>email</b> (TEXT) dans <b>members</b> unique” · “relation <b>N-N</b> entre <b>teams</b> et <b>members</b>” · “supprime table <b>payments</b>”.</div>
+        <div class="sub">
+          Exemples : “ajoute colonne <b>email</b> (TEXT) dans <b>members</b> unique” ·
+          “relation <b>N-N</b> entre <b>teams</b> et <b>members</b>” ·
+          “supprime table <b>payments</b>” ·
+          “supprime relation <b>teams</b> et <b>members</b>”.
+        </div>
       </div>
       <div class="row">
         <input id="editInput" placeholder="Écris une consigne (français naturel)" style="flex:1; padding:10px; border:1px solid var(--bd); border-radius:10px; background:transparent; color:var(--txt)"/>
@@ -181,11 +191,10 @@
     const next=cur==='dark'?'light':'dark';
     root.setAttribute('data-theme',next);
     localStorage.setItem('theme',next);
-    // Re-init Mermaid after theme switch (safe no-op if not loaded)
-    if (window.mermaid) {
-      window.mermaid.initialize({startOnLoad:false, theme: (next==='dark'?'dark':'default')});
+    if (window.mermaid) { // re-init Mermaid with right theme
+      window.mermaid.initialize({startOnLoad:false, theme:(next==='dark'?'dark':'default')});
     }
-    if (lastSchema) renderERD(lastSchema); // re-render if present
+    if (lastSchema) renderERD(lastSchema);
   };
 
   // ---------- Status bar ----------
@@ -193,6 +202,7 @@
   const statMsg = document.getElementById('statMsg');
   const bar = document.getElementById('bar');
   document.getElementById('statClose').onclick=()=> statusEl.style.display='none';
+  window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') statusEl.style.display='none'; });
   function setStatus(text, p){
     statusEl.style.display='block'; statMsg.textContent=text;
     if(typeof p==='number'){ bar.style.width=(Math.max(0,Math.min(100,p)))+'%'; }
@@ -329,6 +339,7 @@
         if(f.default!=null) ps.push("DEFAULT "+String(f.default));
         defs.push(ps.join(" "));
       });
+      // FKs implicites *_id
       (t.fields||[]).forEach(f=>{
         if(/_id$/.test(f.name)){
           const base=f.name.replace(/_id$/,'');
@@ -346,15 +357,12 @@
   // ---------- Mermaid safe render (no infinite spinner) ----------
   async function ensureMermaidReady(timeoutMs=5000){
     const start=performance.now();
-    // wait for script tag (defer) to execute
     while(!window.mermaid){
       if(performance.now()-start>timeoutMs) throw new Error("Mermaid non chargée (timeout).");
       await new Promise(r=>setTimeout(r,50));
     }
     const theme = (root.getAttribute('data-theme')==='dark'?'dark':'default');
-    try{
-      window.mermaid.initialize({startOnLoad:false, theme});
-    }catch{}
+    try{ window.mermaid.initialize({startOnLoad:false, theme}); }catch{}
     return true;
   }
 
@@ -364,7 +372,6 @@
     try{
       await ensureMermaidReady(5000);
       const code = mermaidFromSchema(s);
-      // Parse quickly to catch syntax before render
       try { window.mermaid.parse(code); } catch(e) { throw new Error("Erreur syntaxe ERD: "+e.message); }
       const { svg } = await window.mermaid.render('erd_'+Date.now(), code);
       erdDiv.classList.remove('wait');
@@ -428,8 +435,7 @@
       const restore = document.createElement('button'); restore.textContent='Restaurer';
       restore.onclick=()=>{
         lastSchema = structuredClone(s.schema);
-        saveLocal();
-        renderAll(lastSchema);
+        saveLocal(); renderAll(lastSchema);
         stepReveal('result'); stepReveal('refine'); stepReveal('history');
       };
       const rename = document.createElement('button'); rename.textContent='Renommer';
@@ -470,7 +476,6 @@
     msg(logEl,"Vous",brief);
     msg(logEl,"🤖","Je prépare une proposition…");
 
-    // determinate progress (never infinite)
     setStatus("Analyse du brief…", 20);
     setTimeout(()=> setStatus("Proposition des tables…", 45), 200);
     setTimeout(()=> setStatus("Détection des relations…", 70), 400);
@@ -479,9 +484,8 @@
     lastSchema = s; saveLocal();
     msg(logEl,"🤖","🧠 " + s.rationale);
 
-    // reveal progressively
     stepReveal('result', 80);
-    setTimeout(()=> renderAll(s), 150); // ERD lancé après reveal
+    setTimeout(()=> renderAll(s), 150);
     setTimeout(()=> { stepReveal('refine'); stepReveal('history'); }, 250);
 
     setTimeout(()=> { setStatus("Prêt ✅", 100); setTimeout(()=> (statusEl.style.display='none'), 900); }, 800);
@@ -499,26 +503,34 @@
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download="schema.sql"; a.click();
   };
 
-  // refine rules
+  // ---------- Refinements en FR ----------
   function applyInstruction(text){
     if(!lastSchema) return "Pas de schéma chargé.";
     const s = lastSchema;
     const w = (x)=>x && x.normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase();
     const tok = w(text);
 
-    // relation
+    // relation + ajout
     let m = /relation\s+(1[-\s]?1|1[-\s]?n|n[-\s]?n)\s+entre\s+([a-z0-9_]+)\s+et\s+([a-z0-9_]+)/i.exec(tok);
     if(m){
       const mapType = (t)=> t.startsWith('1-1')||t==='1 1' ? '1-1' : (t.startsWith('1') ? '1-N' : 'N-N');
       const r = { type: mapType(m[1]), from:m[2], to:m[3] };
-      s.relations = s.relations||[];
-      s.relations.push(r); saveLocal();
+      s.relations = s.relations||[]; s.relations.push(r); saveLocal();
       return `✅ Relation ajoutée : ${r.type} ${r.from} → ${r.to}`;
+    }
+    // suppression relation
+    m = /(supprime|enleve|enlève)\s+relation\s+([a-z0-9_]+)\s+(et|avec)\s+([a-z0-9_]+)/i.exec(tok);
+    if(m){
+      const a=m[2], b=m[4];
+      const before=(s.relations||[]).length;
+      s.relations=(s.relations||[]).filter(r=>!( (r.from===a && r.to===b) || (r.from===b && r.to===a) ));
+      saveLocal();
+      return before!== (s.relations||[]).length ? `🗑️ Relation supprimée : ${a} ↔ ${b}` : `❌ Relation introuvable : ${a} ↔ ${b}`;
     }
 
     // ajoute table
     m = /(ajoute|cree|crée)\s+table\s+([a-z0-9_]+)/i.exec(tok);
-    if(m){ const name=m[2]; s.tables.push({name,fields:[pk()]}); saveLocal(); return `✅ Table ajoutée : ${name}`; }
+    if(m){ const name=m[2]; s.tables=s.tables||[]; s.tables.push({name,fields:[pk()]}); saveLocal(); return `✅ Table ajoutée : ${name}`; }
 
     // supprime table
     m = /(supprime|enleve|enlève)\s+table\s+([a-z0-9_]+)/i.exec(tok);
@@ -566,7 +578,7 @@
       f.name=b; saveLocal(); return `✏️ Colonne renommée : ${tbl}.${a} → ${b}`;
     }
 
-    // set type
+    // change type
     m = /(type|format)\s+de\s+([a-z0-9_]+)\.([a-z0-9_]+)\s+en\s+(text|integer|real|boolean|date|datetime)/i.exec(tok);
     if(m){
       const tbl=m[2], col=m[3], type=m[4].toUpperCase();
@@ -575,7 +587,7 @@
       f.type=type; saveLocal(); return `🔧 Type changé : ${tbl}.${col} → ${type}`;
     }
 
-    // flags
+    // flags (set true)
     m = /(rends?|mettre|set)\s+([a-z0-9_]+)\.([a-z0-9_]+).*\b(unique|pk|primaire|not\s?null)\b/i.exec(tok);
     if(m){
       const tbl=m[2], col=m[3], flag=m[4];
@@ -588,7 +600,7 @@
       return `✅ Flag appliqué : ${tbl}.${col} • ${flag}`;
     }
 
-    return "Je n’ai pas compris. Exemples : « ajoute table stocks », « relation 1-N entre orders et order_items », « ajoute colonne email (TEXT) dans members unique ».";
+    return "Je n’ai pas compris. Exemples : « ajoute table stocks », « relation 1-N entre orders et order_items », « ajoute colonne email (TEXT) dans members unique », « supprime relation teams et members ».";
   }
 
   document.getElementById('applyEdit').onclick=()=>{
@@ -600,8 +612,11 @@
     if(lastSchema){ renderAll(lastSchema); }
     document.getElementById('editInput').value="";
   };
+  document.getElementById('editInput').addEventListener('keydown',(e)=>{
+    if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); document.getElementById('applyEdit').click(); }
+  });
 
-  // main go (also Enter in textarea with Ctrl/Meta)
+  // main textarea: Ctrl/Cmd+Enter
   document.getElementById('brief').addEventListener('keydown', (e)=>{
     if((e.metaKey || e.ctrlKey) && e.key==='Enter'){ document.getElementById('go').click(); }
   });
